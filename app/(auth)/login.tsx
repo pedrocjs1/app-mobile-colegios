@@ -1,7 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useRouter } from 'expo-router';
+import { GraduationCap, ArrowRight } from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
     const login = useAuthStore((state) => state.login);
@@ -14,42 +17,169 @@ export default function LoginScreen() {
             email: 'demo@example.com',
             role: 'tutor',
             school_id: schoolId,
-            avatar_url: 'https://i.pravatar.cc/150?img=11',
+            avatar_url: 'https://i.pravatar.cc/150?img=32',
         });
-        // Navigation should ideally be handled by a layout listener or manually if needed
-        // router.replace('/(dashboard)/tutor'); 
+        // Navegación inmediata al dashboard
+        router.replace('/(dashboard)/tutor');
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
-            <View className="flex-1 justify-center items-center px-6">
-                <View className="h-32 w-32 bg-gray-100 rounded-2xl mb-8 items-center justify-center">
-                    <Text className="text-gray-400 font-bold">LOGO</Text>
+        <View style={styles.container}>
+            <View style={styles.topDecoration} />
+
+            <View style={styles.content}>
+                {/* Logo Placeholder - Estilo Moderno */}
+                <View style={styles.logoContainer}>
+                    <View style={styles.logoCircle}>
+                        <GraduationCap size={50} color="white" />
+                    </View>
                 </View>
 
-                <Text className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</Text>
-                <Text className="text-gray-500 mb-12 text-center">Sign in to access your child's academic dashboard</Text>
+                <Text style={styles.title}>EduConnect</Text>
+                <Text style={styles.subtitle}>Gestión académica para familias</Text>
 
-                <View className="w-full space-y-4">
+                <View style={styles.cardContainer}>
+                    <Text style={styles.sectionTitle}>Acceso de demostración</Text>
+
+                    {/* Botón Demo A */}
                     <TouchableOpacity
                         activeOpacity={0.8}
                         onPress={() => handleDemoLogin('school_A', 'Academy Alpha')}
-                        className="w-full bg-[#FF2D55] p-4 rounded-xl items-center shadow-sm"
+                        style={[styles.loginButton, { borderColor: '#6366F1' }]}
                     >
-                        <Text className="text-white font-bold text-lg">Demo: Academy Alpha</Text>
-                        <Text className="text-white/80 text-sm">Role: Tutor (Flia. Gomez)</Text>
+                        <View style={styles.buttonContent}>
+                            <View style={[styles.miniIcon, { backgroundColor: '#6366F1' }]} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.buttonText}>Academy Alpha</Text>
+                                <Text style={styles.buttonSubText}>Flia. Gomez</Text>
+                            </View>
+                            <ArrowRight size={20} color="#6366F1" />
+                        </View>
                     </TouchableOpacity>
 
+                    {/* Botón Demo B */}
                     <TouchableOpacity
                         activeOpacity={0.8}
                         onPress={() => handleDemoLogin('school_B', 'Greenwood High')}
-                        className="w-full bg-[#34C759] p-4 rounded-xl items-center shadow-sm mt-4"
+                        style={[styles.loginButton, { borderColor: '#10B981' }]}
                     >
-                        <Text className="text-white font-bold text-lg">Demo: Greenwood High</Text>
-                        <Text className="text-white/80 text-sm">Role: Tutor (Flia. Perez)</Text>
+                        <View style={styles.buttonContent}>
+                            <View style={[styles.miniIcon, { backgroundColor: '#10B981' }]} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.buttonText}>Greenwood High</Text>
+                                <Text style={styles.buttonSubText}>Flia. Perez</Text>
+                            </View>
+                            <ArrowRight size={20} color="#10B981" />
+                        </View>
                     </TouchableOpacity>
                 </View>
             </View>
-        </SafeAreaView>
+
+            <Text style={styles.footerText}>Violet Wave v1.0.0</Text>
+        </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#F9FAFB',
+        alignItems: 'center',
+    },
+    topDecoration: {
+        position: 'absolute',
+        top: -100,
+        width: width * 1.5,
+        height: 400,
+        borderRadius: 200,
+        backgroundColor: '#6366F1',
+        opacity: 0.1,
+    },
+    content: {
+        flex: 1,
+        width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 30,
+    },
+    logoContainer: {
+        marginBottom: 20,
+    },
+    logoCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 35,
+        backgroundColor: '#6366F1',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    title: {
+        fontSize: 32,
+        fontWeight: '900',
+        color: '#1F2937',
+        letterSpacing: -1,
+    },
+    subtitle: {
+        fontSize: 16,
+        color: '#6B7280',
+        marginBottom: 40,
+        textAlign: 'center',
+    },
+    cardContainer: {
+        width: '100%',
+        backgroundColor: 'white',
+        borderRadius: 35,
+        padding: 25,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 5,
+    },
+    sectionTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#9CA3AF',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    loginButton: {
+        width: '100%',
+        backgroundColor: 'white',
+        borderWidth: 2,
+        borderRadius: 20,
+        padding: 15,
+        marginBottom: 15,
+    },
+    buttonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    miniIcon: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        marginRight: 15,
+    },
+    buttonText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1F2937',
+    },
+    buttonSubText: {
+        fontSize: 13,
+        color: '#6B7280',
+    },
+    footerText: {
+        marginBottom: 30,
+        color: '#9CA3AF',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+});

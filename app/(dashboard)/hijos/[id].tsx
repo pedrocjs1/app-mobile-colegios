@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, Image, ActionSheetIOS, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, Image, StyleSheet, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../../hooks/useTheme';
-import { ArrowLeft, Calendar, FileText, Camera, X } from 'lucide-react-native';
+import { ArrowLeft, Calendar, FileText, Camera, X, CheckCircle2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function ChildDetailScreen() {
@@ -11,146 +11,116 @@ export default function ChildDetailScreen() {
     const router = useRouter();
     const [image, setImage] = useState<string | null>(null);
 
-    const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
-    const [mediaLibraryPermission, requestMediaLibraryPermission] = ImagePicker.useMediaLibraryPermissions();
-
-    // Mock data
     const childName = id === '1' ? 'Juan Gomez' : id === '2' ? 'Sofia Gomez' : 'Mateo Perez';
+
     const attendanceHistory = [
-        { id: 1, date: '21/10/2023', status: 'Ausente', subject: 'Matemática', type: 'Unexcused' },
-        { id: 2, date: '15/10/2023', status: 'Tarde', subject: 'Historia', type: 'Late' },
-        { id: 3, date: '01/10/2023', status: 'Ausente', subject: 'Educación Física', type: 'Excused' },
+        { id: 1, date: '21/10', status: 'Ausente', subject: 'Matemática', type: 'Injustificada', color: '#EF4444' },
+        { id: 2, date: '15/10', status: 'Tarde', subject: 'Historia', type: 'Tarde', color: '#F59E0B' },
+        { id: 3, date: '01/10', status: 'Ausente', subject: 'Educación Física', type: 'Justificada', color: '#3B82F6' },
     ];
 
-    const pickImage = async (useCamera: boolean) => {
-        try {
-            let result;
-            if (useCamera) {
-                if (!cameraPermission?.granted) {
-                    const permission = await requestCameraPermission();
-                    if (!permission.granted) {
-                        Alert.alert('Permiso denegado', 'Se requiere acceso a la cámara.');
-                        return;
-                    }
-                }
-                result = await ImagePicker.launchCameraAsync({
-                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: true,
-                    aspect: [4, 3],
-                    quality: 0.5,
-                });
-            } else {
-                if (!mediaLibraryPermission?.granted) {
-                    const permission = await requestMediaLibraryPermission();
-                    if (!permission.granted) {
-                        Alert.alert('Permiso denegado', 'Se requiere acceso a la galería.');
-                        return;
-                    }
-                }
-                result = await ImagePicker.launchImageLibraryAsync({
-                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: true,
-                    aspect: [4, 3],
-                    quality: 0.5,
-                });
-            }
-
-            if (!result.canceled) {
-                setImage(result.assets[0].uri);
-            }
-        } catch (error) {
-            Alert.alert('Error', 'No se pudo cargar la imagen.');
-        }
-    };
-
-    const handleUploadJustification = () => {
-        Alert.alert(
-            'Seleccionar Imagen',
-            'Elija una opción para subir la justificación médica',
-            [
-                { text: 'Tomar Foto', onPress: () => pickImage(true) },
-                { text: 'Elegir de Galería', onPress: () => pickImage(false) },
-                { text: 'Cancelar', style: 'cancel' }
-            ]
-        );
-    };
-
-    const submitJustification = () => {
-        console.log('Uploading image:', image);
-        Alert.alert('Éxito', 'Justificación cargada localmente');
-        setImage(null); // Reset after upload
-    };
-
     return (
-        <View className="flex-1 bg-gray-50">
-            {/* Header */}
-            <View style={{ backgroundColor: theme.primary }} className="pt-12 pb-6 px-6 shadow-sm">
-                <View className="flex-row items-center">
-                    <TouchableOpacity onPress={() => router.back()} className="mr-4 bg-white/20 p-2 rounded-full">
-                        <ArrowLeft size={24} color="#FFF" />
-                    </TouchableOpacity>
-                    <Text className="text-white text-xl font-bold">{childName}</Text>
-                </View>
+        <View style={styles.container}>
+            {/* Header Azul Redondeado */}
+            <View style={[styles.blueHeader, { backgroundColor: theme.primary }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                    <ArrowLeft size={24} color="#FFF" />
+                </TouchableOpacity>
+                <Text style={styles.headerName}>{childName}</Text>
             </View>
 
-            <ScrollView className="flex-1 px-6 pt-6">
-                <Text className="text-gray-900 font-bold text-lg mb-4">Historial de Asistencias</Text>
+            <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <Text style={styles.sectionTitle}>Historial de Asistencias</Text>
 
                 {attendanceHistory.map((record) => (
-                    <View key={record.id} className="bg-white p-4 rounded-xl mb-3 shadow-sm flex-row items-center border border-gray-100">
-                        <View className={`h-10 w-10 rounded-full items-center justify-center mr-3 ${record.type === 'Unexcused' ? 'bg-red-100' : record.type === 'Late' ? 'bg-yellow-100' : 'bg-blue-100'
-                            }`}>
-                            <Calendar size={20} color={
-                                record.type === 'Unexcused' ? '#EF4444' : record.type === 'Late' ? '#F59E0B' : '#3B82F6'
-                            } />
+                    <View key={record.id} style={styles.attendanceCard}>
+                        <View style={[styles.statusLine, { backgroundColor: record.color }]} />
+                        <View style={styles.cardInfo}>
+                            <Text style={styles.subjectText}>{record.subject}</Text>
+                            <Text style={styles.dateText}>{record.date} • {record.status}</Text>
                         </View>
-                        <View className="flex-1">
-                            <Text className="text-gray-900 font-semibold">{record.subject}</Text>
-                            <Text className="text-gray-500 text-sm">{record.date} - {record.status}</Text>
-                        </View>
-                        <View className={`px-2 py-1 rounded-md ${record.type === 'Unexcused' ? 'bg-red-50' : 'bg-green-50'
-                            }`}>
-                            <Text className={`text-xs font-medium ${record.type === 'Unexcused' ? 'text-red-700' : 'text-green-700'
-                                }`}>{record.type}</Text>
+                        <View style={[styles.badge, { backgroundColor: record.color + '15' }]}>
+                            <Text style={[styles.badgeText, { color: record.color }]}>{record.type}</Text>
                         </View>
                     </View>
                 ))}
 
-                <View className="mt-6 mb-10">
+                {/* Subir Justificación */}
+                <View style={styles.uploadSection}>
+                    <Text style={styles.sectionTitle}>Justificación Médica</Text>
                     {image ? (
-                        <View className="mb-4 items-center">
-                            <View className="relative">
-                                <Image source={{ uri: image }} className="w-40 h-40 rounded-xl" />
-                                <TouchableOpacity
-                                    onPress={() => setImage(null)}
-                                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-1"
-                                >
-                                    <X size={16} color="white" />
-                                </TouchableOpacity>
-                            </View>
-                            <Text className="text-gray-500 text-sm mt-2">Imagen seleccionada</Text>
-
+                        <View style={styles.previewContainer}>
+                            <Image source={{ uri: image }} style={styles.previewImage} />
+                            <TouchableOpacity onPress={() => setImage(null)} style={styles.removeBtn}>
+                                <X size={20} color="white" />
+                            </TouchableOpacity>
                             <TouchableOpacity
-                                onPress={submitJustification}
-                                style={{ backgroundColor: theme.primary }}
-                                className="mt-4 w-full p-4 rounded-xl flex-row items-center justify-center shadow-sm"
+                                style={[styles.mainBtn, { backgroundColor: theme.primary, marginTop: 15 }]}
+                                onPress={() => Alert.alert("Enviado", "La justificación está siendo procesada.")}
                             >
-                                <FileText size={20} color="#FFF" className="mr-2" />
-                                <Text className="text-white font-bold text-lg ml-2">Confirmar Carga</Text>
+                                <CheckCircle2 size={20} color="white" />
+                                <Text style={styles.btnText}>Confirmar Envío</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         <TouchableOpacity
-                            onPress={handleUploadJustification}
-                            style={{ backgroundColor: theme.primary }}
-                            className="p-4 rounded-xl flex-row items-center justify-center shadow-sm"
+                            style={styles.uploadBox}
+                            onPress={() => Alert.alert("Cámara", "Iniciando selector...")}
                         >
-                            <Camera size={20} color="#FFF" className="mr-2" />
-                            <Text className="text-white font-bold text-lg ml-2">Subir Justificación</Text>
+                            <Camera size={32} color={theme.primary} />
+                            <Text style={[styles.uploadText, { color: theme.primary }]}>Subir Certificado</Text>
                         </TouchableOpacity>
                     )}
                 </View>
+                <View style={{ height: 100 }} />
             </ScrollView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    blueHeader: {
+        paddingTop: 60,
+        paddingBottom: 40, // Corregido de pb
+        paddingHorizontal: 25, // Corregido de px
+        borderBottomLeftRadius: 40,
+        borderBottomRightRadius: 40,
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 140
+    },
+    backBtn: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 10, borderRadius: 15, marginRight: 15 },
+    headerName: { fontSize: 22, fontWeight: 'bold', color: 'white' },
+    content: { flex: 1, padding: 25, marginTop: -20 },
+    sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937', marginBottom: 15 },
+    attendanceCard: { backgroundColor: 'white', borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+    statusLine: { width: 4, height: 40, borderRadius: 2, marginRight: 15 },
+    cardInfo: { flex: 1 },
+    subjectText: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
+    dateText: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+    badge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+    badgeText: { fontSize: 11, fontWeight: 'bold' },
+    uploadSection: { marginTop: 20 },
+    uploadBox: { borderStyle: 'dashed', borderWidth: 2, borderColor: '#D1D5DB', borderRadius: 25, height: 150, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.02)' },
+    uploadText: { marginTop: 10, fontWeight: 'bold' },
+    previewContainer: { alignItems: 'center' },
+    previewImage: { width: '100%', height: 200, borderRadius: 20 },
+    removeBtn: {
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: '#EF4444',
+        padding: 8, // Corregido de p
+        borderRadius: 50
+    },
+    mainBtn: {
+        flexDirection: 'row',
+        width: '100%',
+        padding: 18, // Corregido de p
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    btnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginLeft: 10 }
+});
