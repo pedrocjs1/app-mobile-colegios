@@ -2,8 +2,6 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks/useTheme';
-import { useRouter } from 'expo-router';
-import { signOut } from '../../../services/authService';
 import {
     Bell, ShieldAlert, FilePlus, CalendarDays,
     Send, ChevronRight, BookMarked, LogOut
@@ -12,7 +10,6 @@ import {
 export default function TeacherDashboard() {
     const theme = useTheme();
     const { user, logout } = useAuthStore();
-    const router = useRouter();
 
     const handleLogout = () => {
         Alert.alert(
@@ -24,10 +21,8 @@ export default function TeacherDashboard() {
                     text: "Salir",
                     style: "destructive",
                     onPress: async () => {
-                        await signOut();
-                        logout();
-                        // RUTA LIMPIA: Siempre usa '/login'
-                        router.replace('/login');
+                        // Al ejecutar logout(), el RootLayout se encarga de enviarte al Login automáticamente.
+                        await logout();
                     }
                 }
             ]
@@ -63,7 +58,7 @@ export default function TeacherDashboard() {
             </View>
 
             <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* Acciones Rápidas */}
+                {/* El resto de tu código de UI permanece igual... */}
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -110,7 +105,6 @@ export default function TeacherDashboard() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Tareas por Corregir */}
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>Tareas por Corregir</Text>
                     <View style={styles.taskCard}>

@@ -30,31 +30,30 @@ export default function RootLayout() {
     useEffect(() => {
         if (!isReady || !sessionChecked || isLoading) return;
 
+        // --- LÓGICA DE PROTECCIÓN DE RUTAS ---
         if (!isAuthenticated) {
+            // Si no hay sesión, vamos al login. 
+            // Usamos una ruta absoluta simple.
             router.replace('/login');
-        } else {
-            const role = user?.role as any;
-            console.log("🚀 Redirigiendo Usuario:", user?.name, "Rol:", role);
+        } else if (user) {
+            const role = user.role;
+            console.log("🚀 Redirigiendo por rol:", role);
 
-            // Usamos rutas absolutas con /(dashboard)/ para forzar la entrada correcta
             if (role === 'rector') {
-                router.replace('/(dashboard)/rector');
+                router.replace('/rector');
             } else if (role === 'docente') {
-                router.replace('/(dashboard)/teacher');
+                router.replace('/teacher');
             } else if (role === 'tutor') {
-                router.replace('/(dashboard)/tutor');
-            } else {
-                router.replace('/login');
+                router.replace('/tutor');
             }
         }
-    }, [isAuthenticated, user, isReady, sessionChecked, isLoading]);
+    }, [isAuthenticated, isReady, sessionChecked, isLoading]);
 
     if (!sessionChecked || isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
                 <ActivityIndicator size="large" color="#6366F1" />
                 <Text style={{ marginTop: 15, color: '#6366F1', fontWeight: 'bold' }}>Violet Wave EDU</Text>
-                <Text style={{ color: '#94A3B8', fontSize: 12 }}>Sincronizando portal...</Text>
             </View>
         );
     }
@@ -62,10 +61,7 @@ export default function RootLayout() {
     return (
         <QueryClientProvider client={queryClient}>
             <SafeAreaProvider>
-                <Stack screenOptions={{ headerShown: false }}>
-                    <Stack.Screen name="(auth)/login" />
-                    <Stack.Screen name="(dashboard)" />
-                </Stack>
+                <Stack screenOptions={{ headerShown: false }} />
             </SafeAreaProvider>
         </QueryClientProvider>
     );

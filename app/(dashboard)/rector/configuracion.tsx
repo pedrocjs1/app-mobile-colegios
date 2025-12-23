@@ -11,7 +11,6 @@ import {
     LogOut, ShieldCheck
 } from 'lucide-react-native';
 import { getInstitution } from '../../../services/databaseService';
-import { signOut } from '../../../services/authService';
 
 export default function ConfiguracionScreen() {
     const theme = useTheme();
@@ -46,16 +45,8 @@ export default function ConfiguracionScreen() {
                     text: "Salir",
                     style: "destructive",
                     onPress: async () => {
-                        try {
-                            await signOut();
-                            logout();
-                            // RUTA LIMPIA: Siempre /login
-                            router.replace('/login');
-                        } catch (error) {
-                            console.error("Error al cerrar sesión:", error);
-                            logout();
-                            router.replace('/login');
-                        }
+                        // El RootLayout detectará el cambio de estado y redirigirá solo.
+                        await logout();
                     }
                 }
             ]
