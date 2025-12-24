@@ -8,8 +8,8 @@ import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks/useTheme';
 import { useRouter } from 'expo-router';
 import {
-    ArrowLeft, UserPlus, Mail, Phone, RefreshCcw, X, User,
-    ShieldCheck, Key, Book, ChevronRight, Plus, Trash2
+    ArrowLeft, UserPlus, Mail, RefreshCcw, X, User,
+    Key, Book, ChevronRight, Plus, Trash2, Power, UserX
 } from 'lucide-react-native';
 import {
     getStaff,
@@ -17,9 +17,10 @@ import {
     getTeacherSubjects,
     getAllSubjects,
     assignSubjectToTeacher,
-    unassignSubjectFromTeacher
+    unassignSubjectFromTeacher,
+    toggleStaffStatus
 } from '../../../services/databaseService';
-import { registerStaffAuth } from '../../../services/authService'; // IMPORTANTE
+import { registerStaffAuth } from '../../../services/authService';
 import { StaffMember } from '../../../services/mockDatabase';
 
 export default function PersonalScreen() {
@@ -27,24 +28,20 @@ export default function PersonalScreen() {
     const user = useAuthStore((state) => state.user);
     const router = useRouter();
 
-    // Estados de lista
-    const [filter, setFilter] = useState<'all' | 'docente' | 'preceptor'>('all');
+    const [filter, setFilter] = useState<'all' | 'docente' | 'preceptor' | 'inactive'>('all');
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // Estados Modal de Creación
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', role_id: 'docente' as 'docente' | 'preceptor' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Estados Modal de Gestión (Detalle)
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
     const [newPassword, setNewPassword] = useState('');
     const [staffSubjects, setStaffSubjects] = useState<any[]>([]);
 
-    // Estados Selector de Materias
     const [isSubjectSelectorVisible, setIsSubjectSelectorVisible] = useState(false);
     const [allAvailableSubjects, setAllAvailableSubjects] = useState<any[]>([]);
 
@@ -78,26 +75,17 @@ export default function PersonalScreen() {
         }
     };
 
-    // LÓGICA DE ACTUALIZACIÓN DE CONTRASEÑA (NUEVA)
     const handleUpdatePassword = async () => {
-        if (!selectedStaff || !newPassword) {
-            Alert.alert("Campos vacíos", "Por favor ingresa una contraseña.");
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            Alert.alert("Contraseña débil", "La contraseña debe tener al menos 6 caracteres.");
-            return;
-        }
+        if (!selectedStaff || !newPassword) return Alert.alert("Aviso", "Ingresa una contraseña.");
+        if (newPassword.length < 6) return Alert.alert("Aviso", "Mínimo 6 caracteres.");
 
         setIsSubmitting(true);
         try {
             const result = await registerStaffAuth(selectedStaff.email, newPassword, selectedStaff.id);
-
             if (result.success) {
-                Alert.alert("¡Acceso Creado!", `Se han habilitado las credenciales para ${selectedStaff.name}.`);
+                Alert.alert("Éxito", "Acceso configurado.");
                 setNewPassword('');
-                loadStaff(); // Recargamos para actualizar el ID en la lista si fuera necesario
+                loadStaff();
             } else {
                 Alert.alert("Error de Registro", result.error || "No se pudo crear el acceso.");
             }
@@ -108,6 +96,45 @@ export default function PersonalScreen() {
         }
     };
 
+    const handleToggleStatus = async () => {
+        if (!selectedStaff) return;
+        const isCurrentlyActive = (selectedStaff as any).is_active;
+
+        if (isCurrentlyActive && staffSubjects.length > 0) {
+            Alert.alert(
+                "Acción bloqueada",
+                `El docente ${selectedStaff.name} tiene materias asignadas. Debes quitarlas todas antes de desactivarlo.`
+            );
+            return;
+        }
+
+        const actionText = isCurrentlyActive ? "Desactivar" : "Reactivar";
+
+        Alert.alert(
+            `${actionText} Personal`,
+            `¿Confirmas que deseas ${actionText.toLowerCase()} a ${selectedStaff.name}?`,
+            [
+                { text: "Cancelar", style: "cancel" },
+                {
+                    text: "Confirmar",
+                    style: isCurrentlyActive ? "destructive" : "default",
+                    onPress: async () => {
+                        try {
+                            const response = await toggleStaffStatus(selectedStaff.id, !isCurrentlyActive);
+                            if (response) {
+                                setIsDetailModalVisible(false);
+                                loadStaff();
+                                Alert.alert("¡Éxito!", `Personal actualizado.`);
+                            }
+                        } catch (e: any) {
+                            Alert.alert("Error", "No tienes permisos o la columna is_active no existe.");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const handleOpenSubjectSelector = async () => {
         if (!user?.school_id) return;
         try {
@@ -115,7 +142,7 @@ export default function PersonalScreen() {
             setAllAvailableSubjects(subjects);
             setIsSubjectSelectorVisible(true);
         } catch (e) {
-            Alert.alert("Error", "No se pudieron cargar las materias.");
+            Alert.alert("Error", "No se cargaron las materias.");
         }
     };
 
@@ -126,23 +153,23 @@ export default function PersonalScreen() {
             setIsSubjectSelectorVisible(false);
             refreshStaffSubjects(selectedStaff.id);
         } catch (e: any) {
-            Alert.alert("Aviso", e.message || "La materia ya está asignada.");
+            Alert.alert("Aviso", e.message);
         }
     };
 
     const handleRemoveSubject = async (subjectId: string) => {
         if (!selectedStaff) return;
-        Alert.alert("Quitar materia", "¿Estás seguro de desvincular esta materia del docente?", [
-            { text: "Cancelar", style: "cancel" },
+        Alert.alert("Quitar materia", "¿Desvincular materia?", [
+            { text: "No", style: "cancel" },
             {
-                text: "Quitar",
+                text: "Sí, Quitar",
                 style: "destructive",
                 onPress: async () => {
                     try {
                         await unassignSubjectFromTeacher(selectedStaff.id, subjectId);
                         refreshStaffSubjects(selectedStaff.id);
                     } catch (e) {
-                        Alert.alert("Error", "No se pudo quitar la materia.");
+                        Alert.alert("Error", "No se pudo quitar.");
                     }
                 }
             }
@@ -150,14 +177,10 @@ export default function PersonalScreen() {
     };
 
     const handleCreateStaff = async () => {
-        if (!formData.name || !formData.email) {
-            Alert.alert('Campos incompletos', 'Por favor ingresa nombre y email.');
-            return;
-        }
+        if (!formData.name || !formData.email) return Alert.alert('Error', 'Completa los campos.');
         setIsSubmitting(true);
         try {
             await createStaffMember({ school_id: user!.school_id, ...formData });
-            Alert.alert('¡Éxito!', 'Personal registrado correctamente.');
             setIsCreateModalVisible(false);
             setFormData({ name: '', email: '', phone: '', role_id: 'docente' });
             loadStaff();
@@ -168,32 +191,44 @@ export default function PersonalScreen() {
         }
     };
 
-    const filteredStaff = filter === 'all' ? staff : staff.filter(s => (s as any).role === filter);
+    const filteredStaff = staff.filter(item => {
+        const itemRole = (item as any).role;
+        const isActive = (item as any).is_active;
+        if (filter === 'inactive') return !isActive;
+        if (!isActive) return false;
+        if (filter === 'all') return true;
+        return itemRole === filter;
+    });
 
     return (
         <View style={{ flex: 1, backgroundColor: '#F0F2F5' }}>
-            {/* Header */}
+            {/* UI del Header */}
             <View style={[styles.header, { backgroundColor: theme.primary }]}>
                 <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ArrowLeft size={24} color="white" />
-                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><ArrowLeft size={24} color="white" /></TouchableOpacity>
                     <Text style={styles.headerTitle}>Gestión de Personal</Text>
-                    <TouchableOpacity onPress={loadStaff} style={styles.backBtn}>
-                        <RefreshCcw size={20} color="white" />
-                    </TouchableOpacity>
+                    <TouchableOpacity onPress={loadStaff} style={styles.backBtn}><RefreshCcw size={20} color="white" /></TouchableOpacity>
                 </View>
             </View>
 
             {/* Filtros */}
             <View style={styles.filterContainer}>
-                {['all', 'docente', 'preceptor'].map((f) => (
-                    <TouchableOpacity key={f} style={[styles.filterBtn, filter === f && { backgroundColor: theme.primary, borderColor: theme.primary }]} onPress={() => setFilter(f as any)}>
-                        <Text style={[styles.filterText, filter === f && { color: 'white' }]}>
-                            {f === 'all' ? `Todos (${staff.length})` : f.charAt(0).toUpperCase() + f.slice(1) + 's'}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                    {[
+                        { id: 'all', label: 'Todos' },
+                        { id: 'docente', label: 'Docentes' },
+                        { id: 'preceptor', label: 'Preceptores' },
+                        { id: 'inactive', label: 'Inactivos' }
+                    ].map((f) => (
+                        <TouchableOpacity
+                            key={f.id}
+                            style={[styles.filterBtn, filter === f.id && { backgroundColor: theme.primary, borderColor: theme.primary }]}
+                            onPress={() => setFilter(f.id as any)}
+                        >
+                            <Text style={[styles.filterText, filter === f.id && { color: 'white' }]}>{f.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             <ScrollView style={{ flex: 1 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadStaff} colors={[theme.primary]} />}>
@@ -206,37 +241,39 @@ export default function PersonalScreen() {
                 <View style={{ paddingHorizontal: 20, marginBottom: 30 }}>
                     {loading ? (
                         <ActivityIndicator size="large" color={theme.primary} style={{ marginTop: 50 }} />
-                    ) : filteredStaff.map((item) => (
-                        <TouchableOpacity key={item.id} style={styles.staffCard} onPress={() => handleOpenDetail(item)}>
+                    ) : filteredStaff.length > 0 ? filteredStaff.map((item) => (
+                        <TouchableOpacity key={item.id} style={[styles.staffCard, !(item as any).is_active && { opacity: 0.6 }]} onPress={() => handleOpenDetail(item)}>
                             <Image source={{ uri: `https://ui-avatars.com/api/?name=${item.name}&background=6366f1&color=fff` }} style={styles.staffAvatar} />
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.staffName}>{item.name}</Text>
-                                <Text style={[styles.staffRole, { color: theme.primary }]}>{(item as any).role.toUpperCase()}</Text>
+                                <Text style={styles.staffName}>{item.name} {!(item as any).is_active && '(Inactivo)'}</Text>
+                                <Text style={[styles.staffRole, { color: (item as any).is_active ? theme.primary : '#9CA3AF' }]}>{(item as any).role.toUpperCase()}</Text>
                                 <Text style={styles.contactText}>{item.email}</Text>
                             </View>
                             <ChevronRight size={20} color="#9CA3AF" />
                         </TouchableOpacity>
-                    ))}
+                    )) : (
+                        <View style={styles.emptyState}>
+                            <UserX size={40} color="#D1D5DB" />
+                            <Text style={{ color: '#9CA3AF', marginTop: 10 }}>Sin registros.</Text>
+                        </View>
+                    )}
                 </View>
             </ScrollView>
 
-            {/* MODAL 1: REGISTRO INICIAL (CON SOLUCIÓN DE TECLADO) */}
+            {/* MODAL CREACIÓN */}
             <Modal visible={isCreateModalVisible} animationType="slide" transparent={true}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalOverlay}
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalHeader}>
                                 <Text style={styles.modalTitle}>Nuevo Personal</Text>
                                 <TouchableOpacity onPress={() => setIsCreateModalVisible(false)}><X size={24} color="#1F2937" /></TouchableOpacity>
                             </View>
-                            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                            <ScrollView showsVerticalScrollIndicator={false}>
                                 <View style={styles.form}>
                                     <View style={styles.inputWrapper}><User size={18} color="#9CA3AF" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Nombre completo" onChangeText={(v) => setFormData({ ...formData, name: v })} /></View>
                                     <View style={styles.inputWrapper}><Mail size={18} color="#9CA3AF" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" onChangeText={(v) => setFormData({ ...formData, email: v })} /></View>
-                                    <Text style={styles.sectionLabel}>Rol del personal</Text>
+                                    <Text style={styles.sectionLabel}>Rol</Text>
                                     <View style={styles.roleSelector}>
                                         <TouchableOpacity style={[styles.roleOption, formData.role_id === 'docente' && { backgroundColor: theme.primary }]} onPress={() => setFormData({ ...formData, role_id: 'docente' })}>
                                             <Text style={[styles.roleOptionText, formData.role_id === 'docente' && { color: 'white' }]}>Docente</Text>
@@ -246,7 +283,7 @@ export default function PersonalScreen() {
                                         </TouchableOpacity>
                                     </View>
                                     <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary }]} onPress={handleCreateStaff} disabled={isSubmitting}>
-                                        {isSubmitting ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Guardar Personal</Text>}
+                                        {isSubmitting ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
                                     </TouchableOpacity>
                                 </View>
                             </ScrollView>
@@ -255,99 +292,89 @@ export default function PersonalScreen() {
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* MODAL 2: GESTIÓN DE PERFIL (CON SOLUCIÓN DE TECLADO Y LÓGICA DE CLAVE) */}
+            {/* MODAL DETALLE / GESTIÓN */}
             <Modal visible={isDetailModalVisible} animationType="fade" transparent={true}>
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.modalOverlay}
-                >
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
                     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-                        <View style={[styles.modalContent, { minHeight: 600 }]}>
+                        <View style={[styles.modalContent, { minHeight: 400 }]}>
                             <View style={styles.modalHeader}>
                                 <View>
                                     <Text style={styles.modalTitle}>{selectedStaff?.name}</Text>
-                                    <Text style={{ color: theme.primary, fontWeight: '700' }}>{(selectedStaff as any)?.role.toUpperCase()}</Text>
+                                    <Text style={{ color: (selectedStaff as any)?.is_active ? theme.primary : '#9CA3AF', fontWeight: '700' }}>
+                                        {(selectedStaff as any)?.role.toUpperCase()}
+                                    </Text>
                                 </View>
                                 <TouchableOpacity onPress={() => setIsDetailModalVisible(false)}><X size={24} color="#1F2937" /></TouchableOpacity>
                             </View>
 
                             <ScrollView showsVerticalScrollIndicator={false}>
-                                <Text style={styles.sectionLabel}>Acceso al sistema</Text>
-                                <View style={styles.inputWrapper}>
-                                    <Key size={18} color="#9CA3AF" style={styles.inputIcon} />
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Definir contraseña inicial"
-                                        secureTextEntry
-                                        value={newPassword}
-                                        onChangeText={setNewPassword}
-                                    />
-                                    <TouchableOpacity
-                                        onPress={handleUpdatePassword}
-                                        disabled={isSubmitting}
-                                    >
-                                        {isSubmitting ? (
-                                            <ActivityIndicator size="small" color={theme.primary} />
-                                        ) : (
-                                            <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Guardar</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25 }}>
-                                    <Text style={styles.sectionLabel}>Materias Asignadas</Text>
-                                    <TouchableOpacity style={styles.addSubjectIcon} onPress={handleOpenSubjectSelector}>
-                                        <Plus size={18} color="white" />
-                                    </TouchableOpacity>
-                                </View>
-
-                                <View style={styles.subjectsList}>
-                                    {staffSubjects.length > 0 ? staffSubjects.map((sub, idx) => (
-                                        <View key={idx} style={styles.subjectItem}>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={styles.subjectText}>{sub.name}</Text>
-                                                <Text style={{ fontSize: 11, color: '#6366F1' }}>{sub.grade} - {sub.section}</Text>
-                                            </View>
-                                            <TouchableOpacity onPress={() => handleRemoveSubject(sub.id)}>
-                                                <Trash2 size={18} color="#EF4444" />
+                                {(selectedStaff as any)?.is_active ? (
+                                    <>
+                                        <Text style={styles.sectionLabel}>Acceso</Text>
+                                        <View style={styles.inputWrapper}>
+                                            <Key size={18} color="#9CA3AF" style={styles.inputIcon} />
+                                            <TextInput style={styles.input} placeholder="Contraseña" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+                                            <TouchableOpacity onPress={handleUpdatePassword} disabled={isSubmitting}>
+                                                {isSubmitting ? <ActivityIndicator size="small" color={theme.primary} /> : <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Guardar</Text>}
                                             </TouchableOpacity>
                                         </View>
-                                    )) : (
-                                        <View style={styles.emptySubjects}><Text style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Sin materias asignadas.</Text></View>
-                                    )}
-                                </View>
 
-                                <TouchableOpacity style={[styles.saveButton, { backgroundColor: '#F3F4F6', marginTop: 40 }]} onPress={() => setIsDetailModalVisible(false)}>
-                                    <Text style={{ color: '#4B5563', fontWeight: 'bold' }}>Cerrar Gestión</Text>
-                                </TouchableOpacity>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25 }}>
+                                            <Text style={styles.sectionLabel}>Materias</Text>
+                                            <TouchableOpacity style={styles.addSubjectIcon} onPress={handleOpenSubjectSelector}><Plus size={18} color="white" /></TouchableOpacity>
+                                        </View>
+
+                                        <View style={styles.subjectsList}>
+                                            {staffSubjects.length > 0 ? staffSubjects.map((sub, idx) => (
+                                                <View key={idx} style={styles.subjectItem}>
+                                                    <View style={{ flex: 1 }}><Text style={styles.subjectText}>{sub.name}</Text><Text style={{ fontSize: 11, color: '#6366F1' }}>{sub.grade} - {sub.section}</Text></View>
+                                                    <TouchableOpacity onPress={() => handleRemoveSubject(sub.id)}><Trash2 size={18} color="#EF4444" /></TouchableOpacity>
+                                                </View>
+                                            )) : <View style={styles.emptySubjects}><Text style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Sin materias.</Text></View>}
+                                        </View>
+                                    </>
+                                ) : (
+                                    <View style={styles.inactiveNotice}>
+                                        <UserX size={30} color="#6B7280" />
+                                        <Text style={styles.inactiveNoticeText}>Este perfil está desactivado.</Text>
+                                    </View>
+                                )}
+
+                                <View style={{ marginTop: 40 }}>
+                                    <TouchableOpacity
+                                        style={[styles.statusButton, { backgroundColor: (selectedStaff as any)?.is_active ? '#FEE2E2' : '#D1FAE5' }]}
+                                        onPress={handleToggleStatus}
+                                    >
+                                        <Power size={18} color={(selectedStaff as any)?.is_active ? '#EF4444' : '#059669'} />
+                                        <Text style={{ color: (selectedStaff as any)?.is_active ? '#EF4444' : '#059669', fontWeight: '800' }}>
+                                            {(selectedStaff as any)?.is_active ? 'Desactivar Personal' : 'Reactivar Personal'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                             </ScrollView>
                         </View>
                     </TouchableWithoutFeedback>
                 </KeyboardAvoidingView>
+            </Modal>
 
-                {/* SUB-MODAL: SELECTOR DE MATERIAS */}
-                <Modal visible={isSubjectSelectorVisible} transparent animationType="fade">
-                    <View style={styles.selectorOverlay}>
-                        <View style={styles.selectorContent}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Asignar Materia</Text>
-                                <TouchableOpacity onPress={() => setIsSubjectSelectorVisible(false)}><X size={24} color="#000" /></TouchableOpacity>
-                            </View>
-                            <ScrollView>
-                                {allAvailableSubjects.map((sub) => (
-                                    <TouchableOpacity
-                                        key={sub.id}
-                                        style={styles.selectorItem}
-                                        onPress={() => handleAssignSubject(sub.id)}
-                                    >
-                                        <Book size={18} color={theme.primary} style={{ marginRight: 10 }} />
-                                        <Text style={styles.selectorText}>{sub.name} ({sub.grade})</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+            {/* SELECTOR DE MATERIAS */}
+            <Modal visible={isSubjectSelectorVisible} transparent animationType="fade">
+                <View style={styles.selectorOverlay}>
+                    <View style={styles.selectorContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Asignar Materia</Text>
+                            <TouchableOpacity onPress={() => setIsSubjectSelectorVisible(false)}><X size={24} color="#000" /></TouchableOpacity>
                         </View>
+                        <ScrollView>
+                            {allAvailableSubjects.map((sub) => (
+                                <TouchableOpacity key={sub.id} style={styles.selectorItem} onPress={() => handleAssignSubject(sub.id)}>
+                                    <Book size={18} color={theme.primary} style={{ marginRight: 10 }} />
+                                    <Text style={styles.selectorText}>{sub.name} ({sub.grade})</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
-                </Modal>
+                </View>
             </Modal>
         </View>
     );
@@ -358,8 +385,8 @@ const styles = StyleSheet.create({
     headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     backBtn: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 12 },
     headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
-    filterContainer: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 20, gap: 10 },
-    filterBtn: { flex: 1, backgroundColor: 'white', paddingVertical: 12, borderRadius: 15, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', elevation: 1 },
+    filterContainer: { paddingHorizontal: 20, paddingVertical: 20 },
+    filterBtn: { paddingHorizontal: 20, paddingVertical: 12, backgroundColor: 'white', borderRadius: 15, alignItems: 'center', borderWidth: 2, borderColor: 'transparent', elevation: 1 },
     filterText: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
     addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 15, borderRadius: 20, gap: 8, elevation: 4 },
     addButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
@@ -382,6 +409,7 @@ const styles = StyleSheet.create({
     roleOptionText: { fontWeight: '700', color: '#6B7280' },
     saveButton: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
     saveButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    statusButton: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
     subjectsList: { marginTop: 10, gap: 8 },
     subjectItem: { backgroundColor: '#EEF2FF', padding: 15, borderRadius: 15, borderLeftWidth: 5, borderLeftColor: '#6366F1', flexDirection: 'row', alignItems: 'center' },
     subjectText: { color: '#4338CA', fontWeight: '800', fontSize: 14 },
@@ -390,5 +418,8 @@ const styles = StyleSheet.create({
     selectorContent: { backgroundColor: 'white', borderRadius: 25, padding: 25, maxHeight: '70%' },
     selectorItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
     selectorText: { fontSize: 15, fontWeight: '600', color: '#1F2937' },
-    emptySubjects: { padding: 20, alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#D1D5DB' }
+    emptySubjects: { padding: 20, alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 15, borderStyle: 'dashed', borderWidth: 1, borderColor: '#D1D5DB' },
+    inactiveNotice: { padding: 30, backgroundColor: '#F9FAFB', borderRadius: 25, alignItems: 'center', gap: 15, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed' },
+    inactiveNoticeText: { textAlign: 'center', color: '#6B7280', lineHeight: 20, fontWeight: '500' },
+    emptyState: { alignItems: 'center', marginTop: 100 },
 });

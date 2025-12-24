@@ -69,7 +69,8 @@ export async function getStaff(schoolId: string): Promise<StaffMember[]> {
             .from('users')
             .select('id, school_id, name, email, phone, role:role_id, avatar_url, is_active')
             .eq('school_id', schoolId)
-            .in('role_id', ['docente', 'preceptor']);
+            .in('role_id', ['docente', 'preceptor'])
+            .order('name', { ascending: true });
 
         if (error) throw error;
         return (data || []) as unknown as StaffMember[];
@@ -79,7 +80,20 @@ export async function getStaff(schoolId: string): Promise<StaffMember[]> {
     }
 }
 
-/** Registrar nuevo docente o preceptor en la base de datos (Perfil Inicial) */
+/** Cambiar el estado de actividad de un miembro del personal */
+export async function toggleStaffStatus(userId: string, newStatus: boolean) {
+    const { data, error } = await supabase
+        .from('users')
+        .update({ is_active: newStatus })
+        .eq('id', userId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+/** Registrar nuevo docente o preceptor (Perfil Inicial) */
 export async function createStaffMember(staffData: {
     school_id: string;
     name: string;
@@ -101,9 +115,7 @@ export async function createStaffMember(staffData: {
     return data;
 }
 
-/** * ACTUALIZAR ID DE USUARIO (CRÍTICO PARA AUTH)
- * Vincula el registro de la tabla 'users' con el ID real de Supabase Auth
- */
+/** Actualizar ID tras registro en Auth */
 export async function updateUserAuthId(oldId: string, newAuthId: string) {
     const { data, error } = await supabase
         .from('users')
@@ -120,7 +132,6 @@ export async function updateUserAuthId(oldId: string, newAuthId: string) {
 // SUBJECTS & ACADEMIC ASSIGNMENTS
 // ============================================
 
-/** Trae todas las materias creadas para una escuela específica */
 export async function getAllSubjects(schoolId: string) {
     const { data, error } = await supabase
         .from('subjects')
@@ -132,7 +143,6 @@ export async function getAllSubjects(schoolId: string) {
     return data || [];
 }
 
-/** Obtiene las materias que tiene asignadas un docente en particular */
 export async function getTeacherSubjects(teacherId: string) {
     const { data, error } = await supabase
         .from('teacher_subjects')
@@ -146,7 +156,6 @@ export async function getTeacherSubjects(teacherId: string) {
     return data.map(item => item.subjects);
 }
 
-/** Vincula a un docente con una materia específica */
 export async function assignSubjectToTeacher(schoolId: string, teacherId: string, subjectId: string) {
     const { data, error } = await supabase
         .from('teacher_subjects')
@@ -163,7 +172,6 @@ export async function assignSubjectToTeacher(schoolId: string, teacherId: string
     return data;
 }
 
-/** Desvincula a un docente de una materia */
 export async function unassignSubjectFromTeacher(teacherId: string, subjectId: string) {
     const { error } = await supabase
         .from('teacher_subjects')
@@ -179,7 +187,6 @@ export async function unassignSubjectFromTeacher(teacherId: string, subjectId: s
 // DOCENTE: ACCIONES Y ALUMNOS
 // ============================================
 
-/** Obtiene alumnos de un curso específico */
 export async function getStudentsByClass(schoolId: string, grade: string, section: string): Promise<Student[]> {
     try {
         const { data, error } = await supabase
@@ -198,7 +205,6 @@ export async function getStudentsByClass(schoolId: string, grade: string, sectio
     }
 }
 
-/** Registrar una sanción o llamado de atención */
 export async function createSanction(sanctionData: {
     school_id: string;
     student_id: string;
@@ -238,13 +244,14 @@ export async function getStudents(schoolId: string): Promise<Student[]> {
 
 export async function getFamilies(schoolId: string): Promise<Family[]> {
     try {
-        const { data: tutors } = await supabase
+        const { data: tutors, error: tutorsError } = await supabase
             .from('users')
             .select('id, name, email')
             .eq('school_id', schoolId)
-            .eq('role_id', 'tutor');
+            .eq('role_id', 'tutor')
+            .eq('is_active', true);
 
-        if (!tutors) return [];
+        if (tutorsError || !tutors) return [];
 
         const families: Family[] = [];
         for (const tutor of tutors) {
@@ -264,7 +271,133 @@ export async function getFamilies(schoolId: string): Promise<Family[]> {
         }
         return families;
     } catch (error) {
+        console.error('Get families error:', error);
         return [];
+    }
+}
+
+export async function createFamilyMember(data: { school_id: string; name: string; email: string }) {
+    const { data: family, error } = await supabase
+        .from('users')
+        .insert([{
+            ...data,
+            role_id: 'tutor',
+            is_active: true,
+            id: `temp_fam_${Math.random().toString(36).substr(2, 9)}`
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return family;
+}
+
+export async function searchStudents(schoolId: string, query: string) {
+    const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('school_id', schoolId)
+        .ilike('last_name', `%${query}%`)
+        .limit(10);
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function linkStudentToFamily(tutorId: string, studentId: string) {
+    const { error } = await supabase
+        .from('family_relationships')
+        .insert([{ tutor_id: tutorId, student_id: studentId }]);
+
+    if (error) {
+        if (error.code === '23505') throw new Error('Este alumno ya está vinculado a esta familia.');
+        throw error;
+    }
+    return true;
+}
+
+export async function unlinkStudentFromFamily(tutorId: string, studentId: string) {
+    const { error } = await supabase
+        .from('family_relationships')
+        .delete()
+        .eq('tutor_id', tutorId)
+        .eq('student_id', studentId);
+
+    if (error) throw error;
+    return true;
+}
+
+/** * ✅ REGISTRAR UN NUEVO ALUMNO Y VINCULARLO AUTOMÁTICAMENTE
+ * ACTUALIZADO: Ahora procesa email y password
+ */
+export async function createAndLinkStudent(studentData: {
+    school_id: string;
+    first_name: string;
+    last_name: string;
+    grade: string;
+    section: string;
+    email: string;      // Nuevo campo
+    password: string;   // Nuevo campo
+    tutor_id: string;
+}) {
+    // Generar IDs únicos manuales para VARCHAR
+    const studentId = `stu_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const relationshipId = `rel_${Date.now()}`;
+
+    console.log("========================================");
+    console.log("🚀 createAndLinkStudent INICIANDO");
+    console.log("📦 Datos recibidos:", JSON.stringify(studentData, null, 2));
+
+    try {
+        // 1. Insertar en tabla 'students'
+        const studentPayload = {
+            id: studentId,
+            school_id: studentData.school_id,
+            first_name: studentData.first_name,
+            last_name: studentData.last_name,
+            grade: studentData.grade,
+            section: studentData.section,
+            email: studentData.email,       // ✅ Guardamos email
+            password: studentData.password, // ✅ Guardamos contraseña
+            is_active: true
+        };
+
+        console.log("📝 PASO 1: Insertando alumno...");
+        const { data: student, error: studentError } = await supabase
+            .from('students')
+            .insert([studentPayload])
+            .select()
+            .single();
+
+        if (studentError) {
+            console.error("❌ ERROR SUPABASE (students):", studentError);
+            throw new Error(studentError.message);
+        }
+
+        // 2. Crear relación familiar
+        const relationshipPayload = {
+            id: relationshipId,
+            school_id: studentData.school_id,
+            tutor_id: studentData.tutor_id,
+            student_id: studentId
+        };
+
+        console.log("📝 PASO 2: Vinculando con tutor...");
+        const { error: linkError } = await supabase
+            .from('family_relationships')
+            .insert([relationshipPayload]);
+
+        if (linkError) {
+            console.error("❌ ERROR SUPABASE (relación):", linkError);
+            throw new Error(linkError.message);
+        }
+
+        console.log("✅ Proceso completado con éxito");
+        return student;
+
+    } catch (error: any) {
+        console.error("💥 FALLÓ createAndLinkStudent:", error);
+        throw error;
     }
 }
 
@@ -290,6 +423,7 @@ export async function getRecentActivity(schoolId: string) {
             icon: 'Bell' as const,
         }));
     } catch (error) {
+        console.error('Get activity error:', error);
         return [];
     }
 }

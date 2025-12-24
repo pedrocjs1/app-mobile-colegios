@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Stack, useRouter, useRootNavigationState } from 'expo-router';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { Stack, useRouter, useRootNavigationState, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
@@ -9,10 +9,18 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
     const router = useRouter();
+    const segments = useSegments();
     const navigationState = useRootNavigationState();
     const { isAuthenticated, user, checkSession, isLoading } = useAuthStore();
     const [isReady, setIsReady] = useState(false);
     const [sessionChecked, setSessionChecked] = useState(false);
+
+    // ✅ FIX: Serializar segments para evitar re-renders infinitos
+    // useMemo asegura que segmentsKey solo cambia cuando el contenido real cambia
+    const segmentsKey = useMemo(() => segments.join('/'), [segments]);
+
+    // Referencia para rastrear la última ruta navegada y evitar redirecciones duplicadas
+    const lastNavigatedRoute = useRef<string | null>(null);
 
     useEffect(() => {
         const initSession = async () => {
@@ -30,24 +38,49 @@ export default function RootLayout() {
     useEffect(() => {
         if (!isReady || !sessionChecked || isLoading) return;
 
-        // --- LÓGICA DE PROTECCIÓN DE RUTAS ---
+        // --- LÓGICA DE NAVEGACIÓN SEGURA ---
+        // Verificamos si ya estamos dentro de alguna de las carpetas de rol
+        const inAuthGroup = segments.includes('(auth)');
+        const isAtRector = segments.includes('rector');
+        const isAtTeacher = segments.includes('teacher');
+        const isAtTutor = segments.includes('tutor');
+
+        // ✅ FIX: Guarda para evitar navegación a rutas donde ya estamos
+        const navigateTo = (route: string) => {
+            if (lastNavigatedRoute.current === route) return; // Ya navegamos aquí
+            lastNavigatedRoute.current = route;
+            router.replace(route);
+        };
+
         if (!isAuthenticated) {
-            // Si no hay sesión, vamos al login. 
-            // Usamos una ruta absoluta simple.
-            router.replace('/login');
+            // Si no está autenticado y no está en login, mandarlo a login
+            if (!inAuthGroup) {
+                navigateTo('/login');
+            }
         } else if (user) {
             const role = user.role;
-            console.log("🚀 Redirigiendo por rol:", role);
 
-            if (role === 'rector') {
-                router.replace('/rector');
-            } else if (role === 'docente') {
-                router.replace('/teacher');
-            } else if (role === 'tutor') {
-                router.replace('/tutor');
+            // --- LÓGICA ANTI-BUCLE MEJORADA ---
+            // Solo redirige si el usuario NO está ya en su carpeta correspondiente
+            // Y si no acabamos de navegar a esa ruta
+            if (role === 'rector' && !isAtRector) {
+                console.log("🚀 Redirigiendo a Rector...");
+                navigateTo('/rector');
+            }
+            else if (role === 'docente' && !isAtTeacher) {
+                console.log("🚀 Redirigiendo a Docente...");
+                navigateTo('/teacher');
+            }
+            else if (role === 'tutor' && !isAtTutor) {
+                console.log("🚀 Redirigiendo a Tutor...");
+                navigateTo('/tutor');
+            }
+            // ✅ Si llegamos aquí, el usuario está en la ruta correcta - limpiar referencia
+            else {
+                lastNavigatedRoute.current = null;
             }
         }
-    }, [isAuthenticated, isReady, sessionChecked, isLoading]);
+    }, [isAuthenticated, user, isReady, sessionChecked, isLoading, segmentsKey]);
 
     if (!sessionChecked || isLoading) {
         return (

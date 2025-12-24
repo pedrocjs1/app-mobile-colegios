@@ -3,6 +3,7 @@
         "name": "white-label-edu-app",
         "slug": "white-label-edu-app",
         "version": "1.0.0",
+        "scheme": "white-label-edu",
         "orientation": "portrait",
         "icon": "./assets/icon.png",
         "userInterfaceStyle": "light",
@@ -16,6 +17,7 @@
         ],
         "ios": {
             "supportsTablet": true,
+            "bundleIdentifier": "com.tuusuario.whitelabeledu",
             "infoPlist": {
                 "NSCameraUsageDescription": "Allows you to take photos of medical justifications.",
                 "NSPhotoLibraryUsageDescription": "Allows you to select photos of medical justifications."
@@ -26,6 +28,7 @@
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#ffffff"
             },
+            "package": "com.tuusuario.whitelabeledu",
             "permissions": [
                 "CAMERA",
                 "READ_EXTERNAL_STORAGE",
