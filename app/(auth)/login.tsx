@@ -28,17 +28,19 @@ export default function LoginScreen() {
      * Lógica de navegación basada en roles.
      * Se activa automáticamente cuando el estado 'user' cambia en el Store.
      */
+    // Dentro de login.tsx, cambia el useEffect por este:
     useEffect(() => {
         if (user) {
-            const userRole = user.role as any;
+            console.log("✅ Usuario logueado con rol:", user.role); // LOG DE GUERRA
 
-            // Redirección según el rol hacia los nuevos layouts independientes
+            const userRole = user.role as string;
+
             if (userRole === 'rector') {
-                router.replace('/(dashboard)/rector');
+                router.replace('/rector'); // Sin (dashboard)
             } else if (userRole === 'docente') {
-                router.replace('/(dashboard)/teacher');
+                router.replace('/teacher'); // Sin (dashboard)
             } else if (userRole === 'tutor') {
-                router.replace('/(dashboard)/tutor');
+                router.replace('/tutor'); // Sin (dashboard)
             }
         }
     }, [user]);

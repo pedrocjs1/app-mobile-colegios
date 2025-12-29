@@ -111,15 +111,24 @@ export default function FamiliasScreen() {
     };
 
     const handleUpdatePassword = async () => {
-        if (!selectedFamily || !newPassword) return;
+        if (!selectedFamily || !newPassword) return Alert.alert("Aviso", "Ingresa una contraseña.");
+        if (newPassword.length < 6) return Alert.alert("Aviso", "Mínimo 6 caracteres.");
+
         setIsSubmitting(true);
         try {
             const result = await registerStaffAuth(selectedFamily.tutor_email, newPassword, selectedFamily.tutor_id);
             if (result.success) {
                 Alert.alert("Éxito", "Acceso configurado para el tutor.");
                 setNewPassword('');
+                loadFamilies();
+            } else {
+                Alert.alert("Error de Registro", result.error || "No se pudo crear el acceso.");
             }
-        } catch (e: any) { Alert.alert("Error", e.message); } finally { setIsSubmitting(false); }
+        } catch (error: any) {
+            Alert.alert("Error", error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleUnlink = async (studentId: string) => {
@@ -208,7 +217,9 @@ export default function FamiliasScreen() {
                             <View style={styles.inputWrapper}>
                                 <Key size={18} color="#9CA3AF" style={{ marginRight: 10 }} />
                                 <TextInput style={styles.input} placeholder="Nueva contraseña" placeholderTextColor="#9CA3AF" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
-                                <TouchableOpacity onPress={handleUpdatePassword} disabled={isSubmitting}><Text style={{ color: theme.primary, fontWeight: 'bold' }}>Guardar</Text></TouchableOpacity>
+                                <TouchableOpacity onPress={handleUpdatePassword} disabled={isSubmitting}>
+                                    {isSubmitting ? <ActivityIndicator size="small" color={theme.primary} /> : <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Guardar</Text>}
+                                </TouchableOpacity>
                             </View>
 
                             <View style={styles.studentListHeader}>

@@ -48,43 +48,44 @@ export async function getUserProfile(userId: string): Promise<User | null> {
     } catch (e) { return null; }
 }
 
-/** REGISTRAR ACCESO PARA PERSONAL */
-export async function registerStaffAuth(email: string, password: string, currentStaffId: string): Promise<{ success: boolean; error: string | null }> {
+/** REGISTRAR ACCESO PARA CUALQUIER USUARIO (DOCENTE O TUTOR) */
+export async function registerStaffAuth(email: string, password: string, currentId: string): Promise<{ success: boolean; error: string | null }> {
     try {
-        // Limpieza profunda del email (quita espacios al inicio, final y caracteres raros)
-        const cleanEmail = email.replace(/\s/g, '').toLowerCase();
+        const cleanEmail = email.trim().toLowerCase();
 
-        // 1. Crear el usuario en Auth sin perder la sesión del Rector
+        // 1. Intentar crear el usuario en Auth
         const { data, error: signUpError } = await supabase.auth.signUp({
             email: cleanEmail,
             password: password,
             options: {
-                // IMPORTANTE: data ayuda a identificar el perfil
-                data: { full_name: email.split('@')[0] },
-                // Evita que el Rector sea deslogueado al crear al docente
-                emailRedirectTo: undefined
+                data: { full_name: cleanEmail.split('@')[0] }
             }
         });
 
-        if (signUpError) {
-            // Manejo específico para dominios bloqueados
-            if (signUpError.message.includes("invalid")) {
-                throw new Error("Supabase rechaza este dominio de correo. Intenta con uno común (@gmail, @hotmail) para probar.");
-            }
+        // Si el error es que ya existe, no importa, necesitamos el ID de todas formas
+        if (signUpError && !signUpError.message.includes("already registered")) {
             throw signUpError;
         }
 
-        if (!data.user) throw new Error("No se pudo crear el acceso en el servidor.");
+        let authId = data.user?.id;
 
-        const newAuthId = data.user.id;
+        // Si signUp no devolvió usuario porque ya existía, lo buscamos o usamos el error para informarlo
+        if (!authId) {
+            // En un entorno real, aquí llamarías a una Edge Function para obtener el ID por email
+            // Por ahora, asumimos que es un registro nuevo o lanzamos error claro.
+            throw new Error("Este email ya tiene una cuenta activa en el sistema de autenticación.");
+        }
 
-        // 2. Vincular con la tabla users (este paso es vital)
+        // 2. Vincular con la tabla 'users'
         const { error: updateError } = await supabase
             .from('users')
-            .update({ id: newAuthId })
-            .eq('id', currentStaffId);
+            .update({ id: authId })
+            .eq('id', currentId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+            console.error("Error vinculando tabla users:", updateError);
+            throw updateError;
+        }
 
         return { success: true, error: null };
     } catch (error: any) {

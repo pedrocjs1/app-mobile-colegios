@@ -75,17 +75,26 @@ export default function PersonalScreen() {
         }
     };
 
+    /** ✅ CORREGIDO: handleUpdatePassword con recarga de lista */
     const handleUpdatePassword = async () => {
         if (!selectedStaff || !newPassword) return Alert.alert("Aviso", "Ingresa una contraseña.");
         if (newPassword.length < 6) return Alert.alert("Aviso", "Mínimo 6 caracteres.");
 
         setIsSubmitting(true);
         try {
+            // Llamamos al servicio genérico (ahora compatible con Cascade Update en la DB)
             const result = await registerStaffAuth(selectedStaff.email, newPassword, selectedStaff.id);
+
             if (result.success) {
-                Alert.alert("Éxito", "Acceso configurado.");
+                Alert.alert("Éxito", "Acceso configurado correctamente.");
                 setNewPassword('');
-                loadStaff();
+
+                // IMPORTANTE: Recargamos la lista para sincronizar el nuevo UUID de Auth
+                await loadStaff();
+
+                // Cerramos el modal de detalle para forzar al Rector a re-seleccionar 
+                // al usuario con su nuevo ID real si desea seguir editando materias.
+                setIsDetailModalVisible(false);
             } else {
                 Alert.alert("Error de Registro", result.error || "No se pudo crear el acceso.");
             }
@@ -127,7 +136,7 @@ export default function PersonalScreen() {
                                 Alert.alert("¡Éxito!", `Personal actualizado.`);
                             }
                         } catch (e: any) {
-                            Alert.alert("Error", "No tienes permisos o la columna is_active no existe.");
+                            Alert.alert("Error", "No se pudo actualizar el estado.");
                         }
                     }
                 }
@@ -202,7 +211,6 @@ export default function PersonalScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: '#F0F2F5' }}>
-            {/* UI del Header */}
             <View style={[styles.header, { backgroundColor: theme.primary }]}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><ArrowLeft size={24} color="white" /></TouchableOpacity>
@@ -211,7 +219,6 @@ export default function PersonalScreen() {
                 </View>
             </View>
 
-            {/* Filtros */}
             <View style={styles.filterContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                     {[
@@ -271,8 +278,14 @@ export default function PersonalScreen() {
                             </View>
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 <View style={styles.form}>
-                                    <View style={styles.inputWrapper}><User size={18} color="#9CA3AF" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Nombre completo" onChangeText={(v) => setFormData({ ...formData, name: v })} /></View>
-                                    <View style={styles.inputWrapper}><Mail size={18} color="#9CA3AF" style={styles.inputIcon} /><TextInput style={styles.input} placeholder="Email" keyboardType="email-address" autoCapitalize="none" onChangeText={(v) => setFormData({ ...formData, email: v })} /></View>
+                                    <View style={styles.inputWrapper}>
+                                        <User size={18} color="#9CA3AF" style={styles.inputIcon} />
+                                        <TextInput style={styles.input} placeholder="Nombre completo" placeholderTextColor="#9CA3AF" onChangeText={(v) => setFormData({ ...formData, name: v })} />
+                                    </View>
+                                    <View style={styles.inputWrapper}>
+                                        <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
+                                        <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#9CA3AF" keyboardType="email-address" autoCapitalize="none" onChangeText={(v) => setFormData({ ...formData, email: v })} />
+                                    </View>
                                     <Text style={styles.sectionLabel}>Rol</Text>
                                     <View style={styles.roleSelector}>
                                         <TouchableOpacity style={[styles.roleOption, formData.role_id === 'docente' && { backgroundColor: theme.primary }]} onPress={() => setFormData({ ...formData, role_id: 'docente' })}>
@@ -310,17 +323,17 @@ export default function PersonalScreen() {
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 {(selectedStaff as any)?.is_active ? (
                                     <>
-                                        <Text style={styles.sectionLabel}>Acceso</Text>
+                                        <Text style={styles.sectionLabel}>Configurar Acceso</Text>
                                         <View style={styles.inputWrapper}>
                                             <Key size={18} color="#9CA3AF" style={styles.inputIcon} />
-                                            <TextInput style={styles.input} placeholder="Contraseña" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+                                            <TextInput style={styles.input} placeholder="Contraseña nueva" placeholderTextColor="#9CA3AF" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
                                             <TouchableOpacity onPress={handleUpdatePassword} disabled={isSubmitting}>
                                                 {isSubmitting ? <ActivityIndicator size="small" color={theme.primary} /> : <Text style={{ color: theme.primary, fontWeight: 'bold' }}>Guardar</Text>}
                                             </TouchableOpacity>
                                         </View>
 
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25 }}>
-                                            <Text style={styles.sectionLabel}>Materias</Text>
+                                            <Text style={styles.sectionLabel}>Materias Asignadas</Text>
                                             <TouchableOpacity style={styles.addSubjectIcon} onPress={handleOpenSubjectSelector}><Plus size={18} color="white" /></TouchableOpacity>
                                         </View>
 
@@ -330,7 +343,7 @@ export default function PersonalScreen() {
                                                     <View style={{ flex: 1 }}><Text style={styles.subjectText}>{sub.name}</Text><Text style={{ fontSize: 11, color: '#6366F1' }}>{sub.grade} - {sub.section}</Text></View>
                                                     <TouchableOpacity onPress={() => handleRemoveSubject(sub.id)}><Trash2 size={18} color="#EF4444" /></TouchableOpacity>
                                                 </View>
-                                            )) : <View style={styles.emptySubjects}><Text style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Sin materias.</Text></View>}
+                                            )) : <View style={styles.emptySubjects}><Text style={{ color: '#9CA3AF', fontStyle: 'italic' }}>Sin materias asignadas.</Text></View>}
                                         </View>
                                     </>
                                 ) : (
@@ -409,7 +422,7 @@ const styles = StyleSheet.create({
     roleOptionText: { fontWeight: '700', color: '#6B7280' },
     saveButton: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
     saveButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-    statusButton: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
+    statusButton: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10, marginTop: 10 },
     subjectsList: { marginTop: 10, gap: 8 },
     subjectItem: { backgroundColor: '#EEF2FF', padding: 15, borderRadius: 15, borderLeftWidth: 5, borderLeftColor: '#6366F1', flexDirection: 'row', alignItems: 'center' },
     subjectText: { color: '#4338CA', fontWeight: '800', fontSize: 14 },

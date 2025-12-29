@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Users, MessageSquare, User } from 'lucide-react-native';
+import { Home, Users, Bell, User } from 'lucide-react-native';
 import { useTheme } from '../../../hooks/useTheme';
 
 /**
@@ -23,8 +23,9 @@ export default function TeacherLayout() {
                     backgroundColor: '#FFFFFF',
                     borderTopLeftRadius: 30,
                     borderTopRightRadius: 30,
-                    position: 'absolute',
-                    elevation: 15,
+                    position: 'absolute', // Esto hace que flote sobre el contenido
+                    borderTopWidth: 0,
+                    elevation: 20,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
@@ -36,7 +37,7 @@ export default function TeacherLayout() {
                 }
             }}
         >
-            {/* Pantalla Principal del Docente */}
+            {/* 1. Dashboard Principal */}
             <Tabs.Screen
                 name="index"
                 options={{
@@ -45,10 +46,22 @@ export default function TeacherLayout() {
                 }}
             />
 
-            {/* NOTA DE VIOLET WAVE: 
-                Hemos ocultado las pestañas 'alumnos', 'mensajes' y 'perfil' 
-                porque aún no existen sus archivos .tsx. 
-                Esto limpia los errores de "extraneous route" en tu consola.
+            {/* NOTA PARA EL FUTURO:
+               Cuando crees los archivos 'alumnos.tsx', 'avisos.tsx' o 'perfil.tsx'
+               en esta misma carpeta, Expo Router los reconocerá automáticamente.
+               
+               Si quieres ocultar una pestaña que no tiene archivo todavía, 
+               simplemente no la declares aquí.
+            */}
+
+            {/* Ejemplo de cómo declarar una pestaña adicional cuando el archivo exista:
+            <Tabs.Screen
+                name="alumnos"
+                options={{
+                    title: 'Mis Alumnos',
+                    tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+                }}
+            /> 
             */}
         </Tabs>
     );
