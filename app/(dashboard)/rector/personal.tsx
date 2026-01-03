@@ -109,6 +109,7 @@ export default function PersonalScreen() {
         if (!selectedStaff) return;
         const isCurrentlyActive = (selectedStaff as any).is_active;
 
+        // 1. Validación previa de materias
         if (isCurrentlyActive && staffSubjects.length > 0) {
             Alert.alert(
                 "Acción bloqueada",
@@ -119,6 +120,7 @@ export default function PersonalScreen() {
 
         const actionText = isCurrentlyActive ? "Desactivar" : "Reactivar";
 
+        // 2. Confirmación del usuario
         Alert.alert(
             `${actionText} Personal`,
             `¿Confirmas que deseas ${actionText.toLowerCase()} a ${selectedStaff.name}?`,
@@ -128,15 +130,23 @@ export default function PersonalScreen() {
                     text: "Confirmar",
                     style: isCurrentlyActive ? "destructive" : "default",
                     onPress: async () => {
+                        setIsSubmitting(true); // 🚀 Iniciamos carga para bloquear botones y evitar doble clic
                         try {
                             const response = await toggleStaffStatus(selectedStaff.id, !isCurrentlyActive);
+
                             if (response) {
                                 setIsDetailModalVisible(false);
-                                loadStaff();
-                                Alert.alert("¡Éxito!", `Personal actualizado.`);
+                                await loadStaff(); // Esperamos a que la lista se refresque
+                                Alert.alert("¡Éxito!", `Personal ${isCurrentlyActive ? 'desactivado' : 'reactivado'} correctamente.`);
                             }
                         } catch (e: any) {
-                            Alert.alert("Error", "No se pudo actualizar el estado.");
+                            console.error("Error en toggleStaffStatus:", e);
+                            // Aquí capturamos el error de RLS o de red sin que se tilde la pantalla
+                            Alert.alert("Error de Servidor", "No se pudo cambiar el estado. Verifica tu conexión o permisos.");
+                        } finally {
+                            // 🔓 ESTA ES LA LÍNEA MÁS IMPORTANTE:
+                            // Pase lo que pase (éxito o error), liberamos el estado de envío
+                            setIsSubmitting(false);
                         }
                     }
                 }
