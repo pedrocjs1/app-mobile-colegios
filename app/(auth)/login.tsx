@@ -10,6 +10,7 @@ import {
     Platform,
     ScrollView
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useRouter } from 'expo-router';
 import { GraduationCap, Mail, Lock, AlertCircle } from 'lucide-react-native';
@@ -17,6 +18,8 @@ import { GraduationCap, Mail, Lock, AlertCircle } from 'lucide-react-native';
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const loginWithEmail = useAuthStore((state) => state.loginWithEmail);
     const isLoading = useAuthStore((state) => state.isLoading);
     const error = useAuthStore((state) => state.error);
@@ -46,6 +49,10 @@ export default function LoginScreen() {
     }, [user]);
 
     const handleLogin = async () => {
+        if (password.length < 6) {
+            alert('La contraseña es muy corta');
+            return;
+        }
         if (!email || !password) return;
 
         clearError();
@@ -57,7 +64,7 @@ export default function LoginScreen() {
             console.log("Login fallido");
         }
     };
-
+    console.log("Render login!", { email, password, isLoading });
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -123,12 +130,37 @@ export default function LoginScreen() {
                                     placeholderTextColor="#9CA3AF"
                                     value={password}
                                     onChangeText={setPassword}
-                                    secureTextEntry
+                                    secureTextEntry={!showPassword}
                                     autoCapitalize="none"
                                     autoCorrect={false}
                                     editable={!isLoading}
                                 />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    <Text style={{ color: '#6366F1', fontWeight: '600' }}>
+                                        {showPassword ? 'Ocultar' : 'Mostrar'}
+                                    </Text>
+                                </TouchableOpacity>
                             </View>
+
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}
+                                onPress={() => setRememberMe(!rememberMe)}
+                            >
+                                <View
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: 6,
+                                        borderWidth: 2,
+                                        borderColor: '#6366F1',
+                                        backgroundColor: rememberMe ? '#6366F1' : 'transparent',
+                                        marginRight: 10
+                                    }}
+                                />
+                                <Text style={{ color: '#374151', fontSize: 14 }}>
+                                    Recordarme
+                                </Text>
+                            </TouchableOpacity>
 
                             {/* Login Button */}
                             <TouchableOpacity
