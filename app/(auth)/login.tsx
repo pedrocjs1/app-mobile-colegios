@@ -48,10 +48,27 @@ export default function LoginScreen() {
         }
     }, [user]);
 
+    //remember me
+    useEffect(() => {
+        const loadRememberedEmail = async () => {
+            const savedEmail = await AsyncStorage.getItem('rememberedEmail');
+            if (savedEmail) {
+                setEmail(savedEmail);
+                setRememberMe(true);
+            }
+        };
+        loadRememberedEmail();
+    }, []);
+
     const handleLogin = async () => {
         if (password.length < 6) {
             alert('La contraseña es muy corta');
             return;
+        }
+        if (rememberMe) {
+            await AsyncStorage.setItem('rememberedEmail', email);
+        } else {
+            await AsyncStorage.removeItem('rememberedEmail');
         }
         if (!email || !password) return;
 
@@ -142,24 +159,16 @@ export default function LoginScreen() {
                                 </TouchableOpacity>
                             </View>
 
+                            {/*remember me*/}
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}
+                                style={styles.rememberContainer}
                                 onPress={() => setRememberMe(!rememberMe)}
+                                activeOpacity={0.8}
                             >
-                                <View
-                                    style={{
-                                        width: 20,
-                                        height: 20,
-                                        borderRadius: 6,
-                                        borderWidth: 2,
-                                        borderColor: '#6366F1',
-                                        backgroundColor: rememberMe ? '#6366F1' : 'transparent',
-                                        marginRight: 10
-                                    }}
-                                />
-                                <Text style={{ color: '#374151', fontSize: 14 }}>
-                                    Recordarme
-                                </Text>
+                                <View style={styles.radioOuter}>
+                                    {rememberMe && <View style={styles.radioInner} />}
+                                </View>
+                                <Text style={styles.rememberText}>Recordarme</Text>
                             </TouchableOpacity>
 
                             {/* Login Button */}
@@ -218,4 +227,34 @@ const styles = StyleSheet.create({
     demoTitle: { fontSize: 11, fontWeight: 'bold', color: '#4338CA', marginBottom: 5, textTransform: 'uppercase' },
     demoText: { fontSize: 11, color: '#4338CA', lineHeight: 16 },
     footerText: { marginTop: 20, marginBottom: 30, color: '#9CA3AF', fontSize: 12, fontWeight: '600' },
+    rememberContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 15,
+        marginHorizontal: 5,
+    },
+
+    radioOuter: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: '#6366F1',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 10,
+    },
+
+    radioInner: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#6366F1',
+    },
+
+    rememberText: {
+        color: '#374151',
+        fontSize: 14,
+        fontWeight: '500',
+    },
 });
