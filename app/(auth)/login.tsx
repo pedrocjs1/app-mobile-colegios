@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useRouter } from 'expo-router';
 import { GraduationCap, Mail, Lock, AlertCircle } from 'lucide-react-native';
+import { Radio } from '../../components/ui/Radio';
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -167,14 +168,14 @@ export default function LoginScreen() {
 
                             {/*remember me*/}
                             <TouchableOpacity
-                                style={styles.rememberContainer}
+                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}
                                 onPress={() => setRememberMe(!rememberMe)}
                                 activeOpacity={0.8}
                             >
-                                <View style={styles.radioOuter}>
-                                    {rememberMe && <View style={styles.radioInner} />}
-                                </View>
-                                <Text style={styles.rememberText}>Recordarme</Text>
+                                <Radio checked={rememberMe} onPress={() => setRememberMe(!rememberMe)} />
+                                <Text style={{ marginLeft: 10, fontSize: 14, color: '#374151' }}>
+                                    Recordarme
+                                </Text>
                             </TouchableOpacity>
 
                             {/* Login Button */}
