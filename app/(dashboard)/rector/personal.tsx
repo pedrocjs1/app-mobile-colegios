@@ -28,26 +28,32 @@ export default function PersonalScreen() {
     const user = useAuthStore((state) => state.user);
     const router = useRouter();
 
+    // ESTADOS
     const [filter, setFilter] = useState<'all' | 'docente' | 'preceptor' | 'inactive'>('all');
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
-    const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', role_id: 'docente' as 'docente' | 'preceptor' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // ESTADOS MODAL CREACIÓN
+    const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+    const [formData, setFormData] = useState({ name: '', email: '', phone: '', role_id: 'docente' as 'docente' | 'preceptor' });
+
+    // ESTADOS MODAL DETALLE
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
     const [newPassword, setNewPassword] = useState('');
     const [staffSubjects, setStaffSubjects] = useState<any[]>([]);
 
+    // ESTADOS SELECTOR MATERIAS
     const [isSubjectSelectorVisible, setIsSubjectSelectorVisible] = useState(false);
     const [allAvailableSubjects, setAllAvailableSubjects] = useState<any[]>([]);
 
+    // 1. CARGAR PERSONAL
     const loadStaff = async () => {
         if (!user?.school_id) return;
         try {
+            setLoading(true);
             const data = await getStaff(user.school_id);
             setStaff(data);
         } catch (error) {
@@ -60,12 +66,7 @@ export default function PersonalScreen() {
 
     useEffect(() => { loadStaff(); }, [user?.school_id]);
 
-    const handleOpenDetail = async (member: StaffMember) => {
-        setSelectedStaff(member);
-        setIsDetailModalVisible(true);
-        refreshStaffSubjects(member.id);
-    };
-
+    // 2. GESTIÓN DE MATERIAS ASIGNADAS
     const refreshStaffSubjects = async (teacherId: string) => {
         try {
             const subjects = await getTeacherSubjects(teacherId);
@@ -75,85 +76,55 @@ export default function PersonalScreen() {
         }
     };
 
-    /** ✅ CORREGIDO: handleUpdatePassword con recarga de lista */
-    const handleUpdatePassword = async () => {
-        if (!selectedStaff || !newPassword) return Alert.alert("Aviso", "Ingresa una contraseña.");
-        if (newPassword.length < 6) return Alert.alert("Aviso", "Mínimo 6 caracteres.");
+    const handleOpenDetail = async (member: StaffMember) => {
+        setSelectedStaff(member);
+        setIsDetailModalVisible(true);
+        refreshStaffSubjects(member.id);
+    };
 
+    // --- AQUÍ ESTÁN LAS FUNCIONES QUE TE DABAN ERROR ---
+
+    // 3. CREAR NUEVO PERSONAL (Función handleCreateStaff)
+    const handleCreateStaff = async () => {
+        if (!formData.name || !formData.email) return Alert.alert('Error', 'Completa los campos.');
         setIsSubmitting(true);
         try {
-            // Llamamos al servicio genérico (ahora compatible con Cascade Update en la DB)
-            const result = await registerStaffAuth(selectedStaff.email, newPassword, selectedStaff.id);
-
-            if (result.success) {
-                Alert.alert("Éxito", "Acceso configurado correctamente.");
-                setNewPassword('');
-
-                // IMPORTANTE: Recargamos la lista para sincronizar el nuevo UUID de Auth
-                await loadStaff();
-
-                // Cerramos el modal de detalle para forzar al Rector a re-seleccionar 
-                // al usuario con su nuevo ID real si desea seguir editando materias.
-                setIsDetailModalVisible(false);
-            } else {
-                Alert.alert("Error de Registro", result.error || "No se pudo crear el acceso.");
-            }
+            await createStaffMember({ school_id: user!.school_id, ...formData });
+            setIsCreateModalVisible(false);
+            setFormData({ name: '', email: '', phone: '', role_id: 'docente' });
+            loadStaff();
+            Alert.alert("Éxito", "Personal registrado.");
         } catch (error: any) {
-            Alert.alert("Error", error.message);
+            Alert.alert('Error', error.message);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleToggleStatus = async () => {
+    // 4. ELIMINAR MATERIA (Función handleRemoveSubject)
+    const handleRemoveSubject = async (subjectId: string) => {
         if (!selectedStaff) return;
-        const isCurrentlyActive = (selectedStaff as any).is_active;
-
-        // 1. Validación previa de materias
-        if (isCurrentlyActive && staffSubjects.length > 0) {
-            Alert.alert(
-                "Acción bloqueada",
-                `El docente ${selectedStaff.name} tiene materias asignadas. Debes quitarlas todas antes de desactivarlo.`
-            );
-            return;
-        }
-
-        const actionText = isCurrentlyActive ? "Desactivar" : "Reactivar";
-
-        // 2. Confirmación del usuario
-        Alert.alert(
-            `${actionText} Personal`,
-            `¿Confirmas que deseas ${actionText.toLowerCase()} a ${selectedStaff.name}?`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: "Confirmar",
-                    style: isCurrentlyActive ? "destructive" : "default",
-                    onPress: async () => {
-                        setIsSubmitting(true); // 🚀 Iniciamos carga para bloquear botones y evitar doble clic
-                        try {
-                            const response = await toggleStaffStatus(selectedStaff.id, !isCurrentlyActive);
-
-                            if (response) {
-                                setIsDetailModalVisible(false);
-                                await loadStaff(); // Esperamos a que la lista se refresque
-                                Alert.alert("¡Éxito!", `Personal ${isCurrentlyActive ? 'desactivado' : 'reactivado'} correctamente.`);
-                            }
-                        } catch (e: any) {
-                            console.error("Error en toggleStaffStatus:", e);
-                            // Aquí capturamos el error de RLS o de red sin que se tilde la pantalla
-                            Alert.alert("Error de Servidor", "No se pudo cambiar el estado. Verifica tu conexión o permisos.");
-                        } finally {
-                            // 🔓 ESTA ES LA LÍNEA MÁS IMPORTANTE:
-                            // Pase lo que pase (éxito o error), liberamos el estado de envío
-                            setIsSubmitting(false);
-                        }
+        Alert.alert("Quitar materia", "¿Desvincular materia de este docente?", [
+            { text: "Cancelar", style: "cancel" },
+            {
+                text: "Sí, Quitar",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        setIsSubmitting(true);
+                        await unassignSubjectFromTeacher(selectedStaff.id, subjectId);
+                        await refreshStaffSubjects(selectedStaff.id);
+                    } catch (e) {
+                        Alert.alert("Error", "No se pudo quitar la materia.");
+                    } finally {
+                        setIsSubmitting(false);
                     }
                 }
-            ]
-        );
+            }
+        ]);
     };
 
+    // 5. SELECTOR DE MATERIAS (Función handleOpenSubjectSelector)
     const handleOpenSubjectSelector = async () => {
         if (!user?.school_id) return;
         try {
@@ -165,46 +136,64 @@ export default function PersonalScreen() {
         }
     };
 
+    // 6. ASIGNAR MATERIA
     const handleAssignSubject = async (subjectId: string) => {
         if (!selectedStaff) return;
+        setIsSubmitting(true);
         try {
             await assignSubjectToTeacher(user!.school_id, selectedStaff.id, subjectId);
             setIsSubjectSelectorVisible(false);
-            refreshStaffSubjects(selectedStaff.id);
+            await refreshStaffSubjects(selectedStaff.id);
         } catch (e: any) {
             Alert.alert("Aviso", e.message);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const handleRemoveSubject = async (subjectId: string) => {
-        if (!selectedStaff) return;
-        Alert.alert("Quitar materia", "¿Desvincular materia?", [
-            { text: "No", style: "cancel" },
-            {
-                text: "Sí, Quitar",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        await unassignSubjectFromTeacher(selectedStaff.id, subjectId);
-                        refreshStaffSubjects(selectedStaff.id);
-                    } catch (e) {
-                        Alert.alert("Error", "No se pudo quitar.");
-                    }
-                }
-            }
-        ]);
-    };
+    // 7. ACTUALIZAR CONTRASEÑA
+    const handleUpdatePassword = async () => {
+        if (!selectedStaff || !newPassword) return Alert.alert("Aviso", "Ingresa una contraseña.");
+        if (newPassword.length < 6) return Alert.alert("Aviso", "Mínimo 6 caracteres.");
 
-    const handleCreateStaff = async () => {
-        if (!formData.name || !formData.email) return Alert.alert('Error', 'Completa los campos.');
         setIsSubmitting(true);
         try {
-            await createStaffMember({ school_id: user!.school_id, ...formData });
-            setIsCreateModalVisible(false);
-            setFormData({ name: '', email: '', phone: '', role_id: 'docente' });
-            loadStaff();
+            const result = await registerStaffAuth(selectedStaff.email, newPassword, selectedStaff.id);
+            if (result.success) {
+                setIsDetailModalVisible(false);
+                setNewPassword('');
+                Alert.alert("Éxito", "Acceso configurado correctamente.");
+                await loadStaff();
+            } else {
+                Alert.alert("Error", result.error || "No se pudo crear el acceso.");
+            }
         } catch (error: any) {
-            Alert.alert('Error', error.message);
+            Alert.alert("Error", error.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // 8. DESACTIVAR/REACTIVAR
+    const handleToggleStatus = async () => {
+        if (!selectedStaff) return;
+        const isCurrentlyActive = (selectedStaff as any).is_active;
+
+        if (isCurrentlyActive && staffSubjects.length > 0) {
+            Alert.alert("Bloqueado", "Quita las materias antes de desactivar.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const response = await toggleStaffStatus(selectedStaff.id, !isCurrentlyActive);
+            if (response) {
+                setIsDetailModalVisible(false);
+                await loadStaff();
+                Alert.alert("¡Éxito!", `Estado actualizado.`);
+            }
+        } catch (e: any) {
+            Alert.alert("Error", "No se pudo cambiar el estado.");
         } finally {
             setIsSubmitting(false);
         }
@@ -221,6 +210,7 @@ export default function PersonalScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: '#F0F2F5' }}>
+            {/* Header */}
             <View style={[styles.header, { backgroundColor: theme.primary }]}>
                 <View style={styles.headerTop}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><ArrowLeft size={24} color="white" /></TouchableOpacity>
@@ -229,6 +219,7 @@ export default function PersonalScreen() {
                 </View>
             </View>
 
+            {/* Filtros */}
             <View style={styles.filterContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                     {[
@@ -367,11 +358,16 @@ export default function PersonalScreen() {
                                     <TouchableOpacity
                                         style={[styles.statusButton, { backgroundColor: (selectedStaff as any)?.is_active ? '#FEE2E2' : '#D1FAE5' }]}
                                         onPress={handleToggleStatus}
+                                        disabled={isSubmitting}
                                     >
-                                        <Power size={18} color={(selectedStaff as any)?.is_active ? '#EF4444' : '#059669'} />
-                                        <Text style={{ color: (selectedStaff as any)?.is_active ? '#EF4444' : '#059669', fontWeight: '800' }}>
-                                            {(selectedStaff as any)?.is_active ? 'Desactivar Personal' : 'Reactivar Personal'}
-                                        </Text>
+                                        {isSubmitting ? <ActivityIndicator color="#EF4444" /> : (
+                                            <>
+                                                <Power size={18} color={(selectedStaff as any)?.is_active ? '#EF4444' : '#059669'} />
+                                                <Text style={{ color: (selectedStaff as any)?.is_active ? '#EF4444' : '#059669', fontWeight: '800' }}>
+                                                    {(selectedStaff as any)?.is_active ? 'Desactivar Personal' : 'Reactivar Personal'}
+                                                </Text>
+                                            </>
+                                        )}
                                     </TouchableOpacity>
                                 </View>
                             </ScrollView>

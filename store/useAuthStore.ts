@@ -1,6 +1,8 @@
-// store/useAuthStore.ts
 import { create } from 'zustand';
-import { signInWithEmail, signOut, getCurrentSession } from '../services/authService';
+// Se agrega getUserProfile a las importaciones de authService
+import { signInWithEmail, signOut, getUserProfile } from '../services/authService';
+// Se importa el cliente de supabase para manejar el refresco de tokens
+import { supabase } from '../services/supabaseClient';
 
 // Tipos de roles que coinciden exactamente con la base de datos
 export type UserRole = 'rector' | 'docente' | 'preceptor' | 'tutor' | 'student';
@@ -22,7 +24,7 @@ interface AuthState {
     setUser: (user: User | null) => void;
     loginWithEmail: (email: string, password: string) => Promise<boolean>;
     logout: () => Promise<void>;
-    clearAuth: () => void; // SOLUCIÓN: Añadida para corregir el error en configuracion.tsx
+    clearAuth: () => void;
     checkSession: () => Promise<void>;
     clearError: () => void;
 }
@@ -108,7 +110,6 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     /**
      * Limpiar estado de autenticación (Lógica síncrona local)
-     * Esta función elimina el error rojo en tu pantalla de configuración
      */
     clearAuth: () => set({
         user: null,
@@ -123,29 +124,29 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ isLoading: true });
 
         try {
-            const { user, error } = await getCurrentSession();
+            // Usamos getSession directamente para detectar tokens corruptos
+            const { data: { session }, error } = await supabase.auth.getSession();
 
-            if (error || !user) {
-                set({
-                    isLoading: false,
-                    isAuthenticated: false,
-                    user: null
-                });
+            if (error || !session) {
+                // Si el token es inválido (ej. Refresh Token Not Found), cerramos sesión
+                if (error?.message.includes("Refresh Token")) {
+                    await signOut();
+                }
+                set({ user: null, isAuthenticated: false, isLoading: false });
                 return;
             }
 
+            // Si hay sesión válida, obtenemos el perfil del usuario de la DB
+            const profile = await getUserProfile(session.user.id);
+
             set({
-                user: user as User,
-                isAuthenticated: true,
+                user: profile as User,
+                isAuthenticated: !!profile,
                 isLoading: false
             });
         } catch (error) {
             console.error('Session check error:', error);
-            set({
-                isLoading: false,
-                isAuthenticated: false,
-                user: null
-            });
+            set({ isLoading: false, isAuthenticated: false, user: null });
         }
     },
 

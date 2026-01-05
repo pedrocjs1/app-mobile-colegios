@@ -61,23 +61,29 @@ export default function LoginScreen() {
     }, []);
 
     const handleLogin = async () => {
+        clearError(); // Limpiamos errores previos
+
+        // Validación de longitud
         if (password.length < 6) {
-            alert('La contraseña es muy corta');
+            useAuthStore.setState({ error: 'La contraseña debe tener al menos 6 caracteres' });
             return;
         }
+
+        if (!email || !password) {
+            useAuthStore.setState({ error: 'Por favor, completa todos los campos' });
+            return;
+        }
+
+        // Manejo de "Recordarme"
         if (rememberMe) {
-            await AsyncStorage.setItem('rememberedEmail', email);
+            await AsyncStorage.setItem('rememberedEmail', email.trim().toLowerCase());
         } else {
             await AsyncStorage.removeItem('rememberedEmail');
         }
-        if (!email || !password) return;
 
-        clearError();
-        // Limpiamos espacios y convertimos a minúsculas para evitar errores de tipeo
         const success = await loginWithEmail(email.trim().toLowerCase(), password);
 
         if (!success) {
-            // El error se maneja automáticamente a través del Store y se muestra en la UI
             console.log("Login fallido");
         }
     };
