@@ -21,35 +21,40 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
+
     const loginWithEmail = useAuthStore((state) => state.loginWithEmail);
     const isLoading = useAuthStore((state) => state.isLoading);
     const error = useAuthStore((state) => state.error);
     const clearError = useAuthStore((state) => state.clearError);
-    const router = useRouter();
     const user = useAuthStore((state) => state.user);
+    const router = useRouter();
 
     /**
-     * Lógica de navegación basada en roles.
+     * ✅ Lógica de navegación basada en roles.
      * Se activa automáticamente cuando el estado 'user' cambia en el Store.
      */
-    // Dentro de login.tsx, cambia el useEffect por este:
     useEffect(() => {
         if (user) {
-            console.log("✅ Usuario logueado con rol:", user.role); // LOG DE GUERRA
+            console.log("✅ Usuario logueado con rol:", user.role);
 
             const userRole = user.role as string;
 
             if (userRole === 'rector') {
-                router.replace('/rector'); // Sin (dashboard)
+                router.replace('/rector');
             } else if (userRole === 'docente') {
-                router.replace('/teacher'); // Sin (dashboard)
+                router.replace('/teacher');
             } else if (userRole === 'tutor') {
-                router.replace('/tutor'); // Sin (dashboard)
+                router.replace('/tutor');
+            } else if (userRole === 'student') {
+                // 🚀 NUEVO: Redirección al panel del alumno
+                router.replace('/student');
             }
         }
     }, [user]);
 
-    //remember me
+    /**
+     * ✅ Cargar email recordado si existe
+     */
     useEffect(() => {
         const loadRememberedEmail = async () => {
             const savedEmail = await AsyncStorage.getItem('rememberedEmail');
@@ -62,11 +67,11 @@ export default function LoginScreen() {
     }, []);
 
     const handleLogin = async () => {
-        clearError(); // Limpiamos errores previos
+        clearError();
 
-        // Validación de longitud
+        // Validación básica
         if (password.length < 6) {
-            useAuthStore.setState({ error: 'La contraseña debe tener al menos 6 caracteres' });
+            useAuthStore.setState({ error: 'La contraseña es muy corta (mínimo 6 caracteres)' });
             return;
         }
 
@@ -75,20 +80,21 @@ export default function LoginScreen() {
             return;
         }
 
-        // Manejo de "Recordarme"
+        // Manejo de persistencia del email ("Recordarme")
         if (rememberMe) {
             await AsyncStorage.setItem('rememberedEmail', email.trim().toLowerCase());
         } else {
             await AsyncStorage.removeItem('rememberedEmail');
         }
 
+        // Ejecutar login
         const success = await loginWithEmail(email.trim().toLowerCase(), password);
 
         if (!success) {
-            console.log("Login fallido");
+            console.log("❌ Login fallido");
         }
     };
-    console.log("Render login!", { email, password, isLoading });
+
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -103,7 +109,7 @@ export default function LoginScreen() {
                     <View style={styles.topDecoration} />
 
                     <View style={styles.content}>
-                        {/* Logo Premium */}
+                        {/* ✅ CORREGIDO: Se cambió 'div' por 'View' aquí */}
                         <View style={styles.logoContainer}>
                             <View style={styles.logoCircle}>
                                 <GraduationCap size={50} color="white" />
@@ -166,14 +172,14 @@ export default function LoginScreen() {
                                 </TouchableOpacity>
                             </View>
 
-                            {/*remember me*/}
+                            {/* Remember Me */}
                             <TouchableOpacity
-                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}
+                                style={styles.rememberContainer}
                                 onPress={() => setRememberMe(!rememberMe)}
                                 activeOpacity={0.8}
                             >
                                 <Radio checked={rememberMe} onPress={() => setRememberMe(!rememberMe)} />
-                                <Text style={{ marginLeft: 10, fontSize: 14, color: '#374151' }}>
+                                <Text style={styles.rememberText}>
                                     Recordarme
                                 </Text>
                             </TouchableOpacity>
@@ -240,26 +246,8 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         marginHorizontal: 5,
     },
-
-    radioOuter: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        borderWidth: 2,
-        borderColor: '#6366F1',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 10,
-    },
-
-    radioInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#6366F1',
-    },
-
     rememberText: {
+        marginLeft: 10,
         color: '#374151',
         fontSize: 14,
         fontWeight: '500',

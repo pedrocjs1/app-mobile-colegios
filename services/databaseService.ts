@@ -2,6 +2,7 @@
 // Handles all database queries with Supabase
 
 import { supabase } from './supabaseClient';
+import { registerStudentAuth } from './authService'; // ✅ Importamos la nueva función de Auth
 import {
     Institution,
     Student,
@@ -108,19 +109,6 @@ export async function createStaffMember(staffData: {
             ...staffData,
             is_active: true
         }])
-        .select()
-        .single();
-
-    if (error) throw error;
-    return data;
-}
-
-/** Actualizar ID tras registro en Auth */
-export async function updateUserAuthId(oldId: string, newAuthId: string) {
-    const { data, error } = await supabase
-        .from('users')
-        .update({ id: newAuthId })
-        .eq('id', oldId)
         .select()
         .single();
 
@@ -292,18 +280,6 @@ export async function createFamilyMember(data: { school_id: string; name: string
     return family;
 }
 
-export async function searchStudents(schoolId: string, query: string) {
-    const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .eq('school_id', schoolId)
-        .ilike('last_name', `%${query}%`)
-        .limit(10);
-
-    if (error) throw error;
-    return data || [];
-}
-
 export async function linkStudentToFamily(tutorId: string, studentId: string) {
     const { error } = await supabase
         .from('family_relationships')
@@ -327,8 +303,8 @@ export async function unlinkStudentFromFamily(tutorId: string, studentId: string
     return true;
 }
 
-/** * ✅ REGISTRAR UN NUEVO ALUMNO Y VINCULARLO AUTOMÁTICAMENTE
- * ACTUALIZADO: Ahora procesa email y password
+/** * ✅ REGISTRAR UN NUEVO ALUMNO INTEGRAL (AUTH + USERS + STUDENTS + LINK)
+ * Esta función garantiza que el alumno tenga credenciales y perfil para el login.
  */
 export async function createAndLinkStudent(studentData: {
     school_id: string;
@@ -336,67 +312,70 @@ export async function createAndLinkStudent(studentData: {
     last_name: string;
     grade: string;
     section: string;
-    email: string;      // Nuevo campo
-    password: string;   // Nuevo campo
+    email: string;
+    password: string;
     tutor_id: string;
 }) {
-    // Generar IDs únicos manuales para VARCHAR
-    const studentId = `stu_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    const relationshipId = `rel_${Date.now()}`;
-
-    console.log("========================================");
-    console.log("🚀 createAndLinkStudent INICIANDO");
-    console.log("📦 Datos recibidos:", JSON.stringify(studentData, null, 2));
+    console.log("🚀 Iniciando creación integral del alumno:", studentData.email);
 
     try {
-        // 1. Insertar en tabla 'students'
-        const studentPayload = {
-            id: studentId,
-            school_id: studentData.school_id,
-            first_name: studentData.first_name,
-            last_name: studentData.last_name,
-            grade: studentData.grade,
-            section: studentData.section,
-            email: studentData.email,       // ✅ Guardamos email
-            password: studentData.password, // ✅ Guardamos contraseña
-            is_active: true
-        };
+        // 1. Crear el usuario en Supabase Auth
+        const authUser = await registerStudentAuth(studentData.email, studentData.password);
+        if (!authUser) throw new Error("No se pudo crear la cuenta de autenticación.");
 
-        console.log("📝 PASO 1: Insertando alumno...");
+        const newAuthId = authUser.id;
+
+        // 2. Crear el perfil en la tabla 'users' (Permite el login en la App)
+        const { error: userError } = await supabase
+            .from('users')
+            .insert([{
+                id: newAuthId,
+                school_id: studentData.school_id,
+                role_id: 'student', // <-- Rol definido para el alumno
+                name: `${studentData.first_name} ${studentData.last_name}`,
+                email: studentData.email.trim().toLowerCase(),
+                is_active: true
+            }]);
+
+        if (userError) throw new Error(`Error en tabla users: ${userError.message}`);
+
+        // 3. Crear el registro en la tabla 'students' vinculado al user_id de Auth
+        const studentId = `stu_${Date.now()}`;
         const { data: student, error: studentError } = await supabase
             .from('students')
-            .insert([studentPayload])
+            .insert([{
+                id: studentId,
+                user_id: newAuthId, // ✅ Vinculación vital para RLS y perfiles
+                school_id: studentData.school_id,
+                first_name: studentData.first_name,
+                last_name: studentData.last_name,
+                grade: studentData.grade,
+                section: studentData.section,
+                email: studentData.email,
+                is_active: true
+            }])
             .select()
             .single();
 
-        if (studentError) {
-            console.error("❌ ERROR SUPABASE (students):", studentError);
-            throw new Error(studentError.message);
-        }
+        if (studentError) throw new Error(`Error en tabla students: ${studentError.message}`);
 
-        // 2. Crear relación familiar
-        const relationshipPayload = {
-            id: relationshipId,
-            school_id: studentData.school_id,
-            tutor_id: studentData.tutor_id,
-            student_id: studentId
-        };
-
-        console.log("📝 PASO 2: Vinculando con tutor...");
+        // 4. Vincular con el tutor en 'family_relationships'
         const { error: linkError } = await supabase
             .from('family_relationships')
-            .insert([relationshipPayload]);
+            .insert([{
+                id: `rel_${Date.now()}`,
+                school_id: studentData.school_id,
+                tutor_id: studentData.tutor_id,
+                student_id: studentId
+            }]);
 
-        if (linkError) {
-            console.error("❌ ERROR SUPABASE (relación):", linkError);
-            throw new Error(linkError.message);
-        }
+        if (linkError) throw new Error(`Error vinculando familia: ${linkError.message}`);
 
-        console.log("✅ Proceso completado con éxito");
+        console.log("✅ Alumno registrado y vinculado correctamente.");
         return student;
 
     } catch (error: any) {
-        console.error("💥 FALLÓ createAndLinkStudent:", error);
+        console.error("💥 Error fatal en createAndLinkStudent:", error.message);
         throw error;
     }
 }

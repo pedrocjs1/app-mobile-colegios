@@ -5,7 +5,7 @@ export interface AuthError { message: string; code?: string; }
 export interface AuthResponse { user: User | null; error: AuthError | null; }
 
 /** * INICIAR SESIÓN 
- * Valida credenciales y recupera el perfil completo del usuario.
+ * Valida credenciales y recupera el perfil completo del usuario desde la tabla pública.
  */
 export async function signInWithEmail(email: string, password: string): Promise<AuthResponse> {
     try {
@@ -29,7 +29,7 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /** * OBTENER PERFIL 
- * Busca los datos extendidos del usuario en la tabla 'users'.
+ * Busca los datos extendidos del usuario (rol, escuela, etc.) en la tabla 'users'.
  */
 export async function getUserProfile(userId: string): Promise<User | null> {
     try {
@@ -55,8 +55,8 @@ export async function getUserProfile(userId: string): Promise<User | null> {
     }
 }
 
-/** * REGISTRAR ACCESO (Sincronización de IDs)
- * Crea el usuario en Auth y reemplaza el ID temporal en la tabla 'users' con el UID real.
+/** * REGISTRAR ACCESO PARA PERSONAL/TUTORES (Sincronización de IDs)
+ * Crea el usuario en Auth y vincula su UUID con el registro temporal de la tabla 'users'.
  */
 export async function registerStaffAuth(email: string, password: string, currentId: string): Promise<{ success: boolean; error: string | null }> {
     try {
@@ -68,7 +68,6 @@ export async function registerStaffAuth(email: string, password: string, current
             password: password,
         });
 
-        // Manejo específico si el correo ya existe
         if (signUpError) {
             if (signUpError.message.includes("already registered")) {
                 return { success: false, error: "Este correo ya tiene una cuenta activa." };
@@ -78,20 +77,15 @@ export async function registerStaffAuth(email: string, password: string, current
 
         if (!data.user) throw new Error("No se pudo obtener el ID de autenticación.");
 
-        const newAuthId = data.user.id;
-
         // 2. Vincular con la tabla 'users'
-        // IMPORTANTE: Si tienes configurado ON UPDATE CASCADE en la DB,
-        // esto actualizará automáticamente todas las tablas relacionadas (materias, hijos, etc.)
         const { error: updateError } = await supabase
             .from('users')
-            .update({ id: newAuthId })
+            .update({ id: data.user.id })
             .eq('id', currentId);
 
         if (updateError) {
             console.error("Error al vincular ID en tabla users:", updateError);
-            // Si falla el update, el usuario queda en Auth pero no vinculado.
-            throw new Error("Acceso creado, pero falló la vinculación. Contacte a soporte.");
+            throw new Error("Acceso creado, pero falló la vinculación del perfil.");
         }
 
         return { success: true, error: null };
@@ -99,6 +93,18 @@ export async function registerStaffAuth(email: string, password: string, current
         console.error('Error crítico en registerStaffAuth:', error);
         return { success: false, error: error.message || 'Error desconocido' };
     }
+}
+
+/** * ✅ NUEVA FUNCIÓN: REGISTRAR CREDENCIALES DE ALUMNO
+ * Registra al alumno en el motor de autenticación para que pueda hacer login.
+ */
+export async function registerStudentAuth(email: string, password: string) {
+    const { data, error } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: password,
+    });
+    if (error) throw error;
+    return data.user;
 }
 
 export async function signOut() {
