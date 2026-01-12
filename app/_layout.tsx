@@ -16,12 +16,12 @@ export default function RootLayout() {
     const [sessionChecked, setSessionChecked] = useState(false);
 
     // ✅ FIX: Serializar segments para evitar re-renders infinitos
-    // useMemo asegura que segmentsKey solo cambia cuando el contenido real cambia
     const segmentsKey = useMemo(() => segments.join('/'), [segments]);
 
-    // Referencia para rastrear la última ruta navegada y evitar redirecciones duplicadas
+    // Referencia para rastrear la última ruta y evitar redirecciones duplicadas
     const lastNavigatedRoute = useRef<string | null>(null);
 
+    // 1. Inicializar la sesión al cargar la app
     useEffect(() => {
         const initSession = async () => {
             await checkSession();
@@ -30,58 +30,63 @@ export default function RootLayout() {
         initSession();
     }, []);
 
+    // 2. Verificar que el estado de navegación de Expo esté listo
     useEffect(() => {
         if (!navigationState?.key) return;
         setIsReady(true);
     }, [navigationState?.key]);
 
+    // 3. Lógica principal de protección de rutas y redirección por roles
     useEffect(() => {
         if (!isReady || !sessionChecked || isLoading) return;
 
-        // --- LÓGICA DE NAVEGACIÓN SEGURA ---
-        // Verificamos si ya estamos dentro de alguna de las carpetas de rol
+        // Verificamos en qué carpeta estamos actualmente
         const inAuthGroup = segments.includes('(auth)');
         const isAtRector = segments.includes('rector');
         const isAtTeacher = segments.includes('teacher');
         const isAtTutor = segments.includes('tutor');
+        const isAtStudent = segments.includes('student'); // 🚀 Agregado para alumnos
 
-        // ✅ FIX: Guarda para evitar navegación a rutas donde ya estamos
         const navigateTo = (route: string) => {
-            if (lastNavigatedRoute.current === route) return; // Ya navegamos aquí
+            if (lastNavigatedRoute.current === route) return;
             lastNavigatedRoute.current = route;
-            router.replace(route);
+            router.replace(route as any);
         };
 
+        // --- LÓGICA DE REDIRECCIÓN ---
         if (!isAuthenticated) {
-            // Si no está autenticado y no está en login, mandarlo a login
+            // Si no está logueado, siempre al login
             if (!inAuthGroup) {
-                navigateTo('/login');
+                navigateTo('/(auth)/login');
             }
         } else if (user) {
             const role = user.role;
 
-            // --- LÓGICA ANTI-BUCLE MEJORADA ---
-            // Solo redirige si el usuario NO está ya en su carpeta correspondiente
-            // Y si no acabamos de navegar a esa ruta
+            // Redirigir según el rol solo si NO estamos ya en la carpeta correcta
             if (role === 'rector' && !isAtRector) {
-                console.log("🚀 Redirigiendo a Rector...");
+                console.log("🚀 Navegando a zona Rector");
                 navigateTo('/rector');
             }
             else if (role === 'docente' && !isAtTeacher) {
-                console.log("🚀 Redirigiendo a Docente...");
+                console.log("🚀 Navegando a zona Docente");
                 navigateTo('/teacher');
             }
             else if (role === 'tutor' && !isAtTutor) {
-                console.log("🚀 Redirigiendo a Tutor...");
+                console.log("🚀 Navegando a zona Tutor");
                 navigateTo('/tutor');
             }
-            // ✅ Si llegamos aquí, el usuario está en la ruta correcta - limpiar referencia
+            else if (role === 'student' && !isAtStudent) {
+                console.log("🚀 Navegando a zona Alumno");
+                navigateTo('/student'); // 🚀 Redirección para Pedrito Junior
+            }
             else {
+                // Ya está en su lugar, limpiar referencia para permitir futuros cambios
                 lastNavigatedRoute.current = null;
             }
         }
     }, [isAuthenticated, user, isReady, sessionChecked, isLoading, segmentsKey]);
 
+    // Pantalla de carga inicial (Splash Screen personalizado)
     if (!sessionChecked || isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>

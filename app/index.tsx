@@ -5,16 +5,23 @@ export default function Index() {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const user = useAuthStore((state) => state.user);
 
-    // Si no está autenticado, va al Login
     if (!isAuthenticated) {
         return <Redirect href="/(auth)/login" />;
     }
 
-    // Role-based routing
+    // --- Ruteo por Roles ---
     if (user?.role === 'rector') {
         return <Redirect href="/(dashboard)/rector" />;
     }
 
-    // Default to tutor dashboard for tutors and other roles
+    if (user?.role === 'student') {
+        return <Redirect href="/(dashboard)/student" />;
+    }
+
+    if (user?.role === 'docente') {
+        return <Redirect href="/(dashboard)/teacher" />;
+    }
+
+    // Por defecto, si no es ninguno de los anteriores, va a tutor
     return <Redirect href="/(dashboard)/tutor" />;
 }
