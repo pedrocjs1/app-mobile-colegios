@@ -22,6 +22,10 @@ export default function Index() {
         return <Redirect href="/(dashboard)/teacher" />;
     }
 
+    if (user?.role === 'preceptor') {
+        return <Redirect href="/(dashboard)/preceptor" />;
+    }
+
     // Por defecto, si no es ninguno de los anteriores, va a tutor
     return <Redirect href="/(dashboard)/tutor" />;
 }

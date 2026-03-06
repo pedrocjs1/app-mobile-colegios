@@ -1,9 +1,9 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, ClipboardList, Calendar, MessageSquare } from 'lucide-react-native';
+import { Home, Bell, Users, Settings } from 'lucide-react-native';
 import { useTheme } from '../../../hooks/useTheme';
 
-export default function TeacherLayout() {
+export default function TutorLayout() {
     const theme = useTheme();
 
     return (
@@ -21,11 +21,9 @@ export default function TeacherLayout() {
                     borderTopRightRadius: 30,
                     position: 'absolute',
                     borderTopWidth: 0,
-                    elevation: 20,
+                    elevation: 15,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
-                    shadowRadius: 10,
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
@@ -41,24 +39,24 @@ export default function TeacherLayout() {
                 }}
             />
             <Tabs.Screen
-                name="tareas"
-                options={{
-                    title: 'Tareas',
-                    tabBarIcon: ({ color }) => <ClipboardList size={24} color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="calendario"
-                options={{
-                    title: 'Pruebas',
-                    tabBarIcon: ({ color }) => <Calendar size={24} color={color} />,
-                }}
-            />
-            <Tabs.Screen
-                name="avisos"
+                name="notificaciones"
                 options={{
                     title: 'Avisos',
-                    tabBarIcon: ({ color }) => <MessageSquare size={24} color={color} />,
+                    tabBarIcon: ({ color }) => <Bell size={24} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="hijos"
+                options={{
+                    title: 'Mis Hijos',
+                    tabBarIcon: ({ color }) => <Users size={24} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="ajustes"
+                options={{
+                    title: 'Ajustes',
+                    tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
                 }}
             />
         </Tabs>

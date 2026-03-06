@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx expo typescript:check)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(npm install)",
+      "Bash(npx expo install react-native-web)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8081)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls \"/c/Users/mp947/Desktop/app-colegios/app-mobile-colegios/node_modules/.bin/expo\"*)",
+      "Bash(node -e \"console.log\\(require.resolve\\(''@expo/cli/build/src/start/index''\\)\\)\")",
+      "Bash(node -e \"console.log\\(require.resolve\\(''expo/cli''\\)\\)\")",
+      "Bash(node -e \"const p = require\\(''expo/package.json''\\); console.log\\(p.bin\\)\")",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(node -e \":*)",
+      "Bash(node node_modules/expo/bin/cli start --tunnel)"
+    ]
+  }
+}

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, ClipboardList, Calendar, MessageSquare } from 'lucide-react-native';
+import { Home, CalendarCheck, ShieldAlert, Settings } from 'lucide-react-native';
 import { useTheme } from '../../../hooks/useTheme';
 
-export default function TeacherLayout() {
+export default function PreceptorLayout() {
     const theme = useTheme();
 
     return (
@@ -21,11 +21,9 @@ export default function TeacherLayout() {
                     borderTopRightRadius: 30,
                     position: 'absolute',
                     borderTopWidth: 0,
-                    elevation: 20,
+                    elevation: 15,
                     shadowColor: '#000',
-                    shadowOffset: { width: 0, height: -4 },
                     shadowOpacity: 0.1,
-                    shadowRadius: 10,
                 },
                 tabBarLabelStyle: {
                     fontSize: 12,
@@ -41,24 +39,24 @@ export default function TeacherLayout() {
                 }}
             />
             <Tabs.Screen
-                name="tareas"
+                name="asistencia"
                 options={{
-                    title: 'Tareas',
-                    tabBarIcon: ({ color }) => <ClipboardList size={24} color={color} />,
+                    title: 'Asistencia',
+                    tabBarIcon: ({ color }) => <CalendarCheck size={24} color={color} />,
                 }}
             />
             <Tabs.Screen
-                name="calendario"
+                name="sanciones"
                 options={{
-                    title: 'Pruebas',
-                    tabBarIcon: ({ color }) => <Calendar size={24} color={color} />,
+                    title: 'Sanciones',
+                    tabBarIcon: ({ color }) => <ShieldAlert size={24} color={color} />,
                 }}
             />
             <Tabs.Screen
-                name="avisos"
+                name="ajustes"
                 options={{
-                    title: 'Avisos',
-                    tabBarIcon: ({ color }) => <MessageSquare size={24} color={color} />,
+                    title: 'Ajustes',
+                    tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
                 }}
             />
         </Tabs>

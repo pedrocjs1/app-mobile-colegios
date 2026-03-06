@@ -8,18 +8,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-// Validate environment variables
+// Fallback URL/key to prevent createClient from crashing when .env is missing
+const PLACEHOLDER_URL = 'https://placeholder.supabase.co';
+const PLACEHOLDER_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder';
+
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables!');
-    console.error('Please create a .env file with:');
-    console.error('EXPO_PUBLIC_SUPABASE_URL=your_project_url');
-    console.error('EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key');
+    console.warn('⚠️ Missing Supabase environment variables. App will run in offline/demo mode.');
+    console.warn('Create a .env file with EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY');
 }
 
 // Create Supabase client with AsyncStorage for session persistence
 export const supabase = createClient(
-    supabaseUrl || '',
-    supabaseAnonKey || '',
+    supabaseUrl || PLACEHOLDER_URL,
+    supabaseAnonKey || PLACEHOLDER_KEY,
     {
         auth: {
             storage: AsyncStorage,

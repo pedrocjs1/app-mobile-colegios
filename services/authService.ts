@@ -4,27 +4,84 @@ import { User, UserRole } from '../store/useAuthStore';
 export interface AuthError { message: string; code?: string; }
 export interface AuthResponse { user: User | null; error: AuthError | null; }
 
-/** * INICIAR SESIÓN 
- * Valida credenciales y recupera el perfil completo del usuario desde la tabla pública.
+/** * INICIAR SESIÓN
+ * Primero intenta Supabase Auth. Si falla, usa login directo contra tabla 'users'.
+ * En desarrollo, password "123456" funciona para todos los usuarios de la tabla users.
  */
 export async function signInWithEmail(email: string, password: string): Promise<AuthResponse> {
     try {
         if (!isSupabaseConfigured()) return { user: null, error: { message: 'Falta configuración de Supabase' } };
 
         const cleanEmail = email.trim().toLowerCase();
+
+        // Intentar primero Supabase Auth (para usuarios registrados en Auth)
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email: cleanEmail,
             password
         });
 
-        if (authError) return { user: null, error: { message: authError.message, code: authError.code } };
-        if (!authData.user) return { user: null, error: { message: 'No se encontró el usuario de autenticación' } };
+        if (!authError && authData.user) {
+            // Login exitoso con Supabase Auth
+            const userProfile = await getUserProfile(authData.user.id);
+            return { user: userProfile, error: userProfile ? null : { message: 'Perfil no encontrado en la base de datos' } };
+        }
 
-        const userProfile = await getUserProfile(authData.user.id);
-        return { user: userProfile, error: userProfile ? null : { message: 'Perfil no encontrado en la base de datos' } };
+        // Si Supabase Auth falla, intentar login directo contra tabla 'users'
+        // (Modo desarrollo: password 123456 para todos)
+        console.log('Supabase Auth failed, trying direct login...');
+        const directUser = await signInDirect(cleanEmail, password);
+        if (directUser) {
+            return { user: directUser, error: null };
+        }
+
+        return { user: null, error: { message: 'Email o contraseña incorrectos' } };
     } catch (error) {
         console.error('Error en signInWithEmail:', error);
         return { user: null, error: { message: 'Error de conexión con el servidor' } };
+    }
+}
+
+/** * LOGIN DIRECTO (Desarrollo)
+ * Busca el usuario en la tabla 'users' por email.
+ * Acepta password "123456" para desarrollo.
+ * En producción, remover este método y usar solo Supabase Auth.
+ */
+async function signInDirect(email: string, password: string): Promise<User | null> {
+    // Solo aceptar password de desarrollo
+    if (password !== '123456') return null;
+
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('id, name, email, role:role_id, school_id, avatar_url')
+            .eq('email', email)
+            .eq('is_active', true)
+            .single();
+
+        if (error || !data) return null;
+
+        // Mapear role_id a UserRole
+        const roleMap: Record<string, UserRole> = {
+            'role-rector': 'rector',
+            'role-docente': 'docente',
+            'role-preceptor': 'preceptor',
+            'role-tutor': 'tutor',
+            'role-student': 'student',
+        };
+
+        const role = roleMap[data.role as string] || (data.role as UserRole);
+
+        return {
+            id: data.id,
+            name: data.name,
+            email: data.email,
+            role: role,
+            school_id: data.school_id,
+            avatar_url: data.avatar_url || undefined,
+        };
+    } catch (e) {
+        console.error('Error en signInDirect:', e);
+        return null;
     }
 }
 
@@ -35,17 +92,26 @@ export async function getUserProfile(userId: string): Promise<User | null> {
     try {
         const { data, error } = await supabase
             .from('users')
-            .select('id, name, email, role:role_id, school_id, avatar_url')
+            .select('id, name, email, role_id, school_id, avatar_url')
             .eq('id', userId)
             .single();
 
         if (error || !data) return null;
 
+        // Map role_id to UserRole
+        const roleMap: Record<string, UserRole> = {
+            'role-rector': 'rector',
+            'role-docente': 'docente',
+            'role-preceptor': 'preceptor',
+            'role-tutor': 'tutor',
+            'role-student': 'student',
+        };
+
         return {
             id: data.id,
             name: data.name,
             email: data.email,
-            role: data.role as UserRole,
+            role: roleMap[data.role_id] || (data.role_id as UserRole),
             school_id: data.school_id,
             avatar_url: data.avatar_url || undefined,
         };

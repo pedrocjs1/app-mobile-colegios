@@ -45,7 +45,8 @@ export default function RootLayout() {
         const isAtRector = segments.includes('rector');
         const isAtTeacher = segments.includes('teacher');
         const isAtTutor = segments.includes('tutor');
-        const isAtStudent = segments.includes('student'); // 🚀 Agregado para alumnos
+        const isAtStudent = segments.includes('student');
+        const isAtPreceptor = segments.includes('preceptor');
 
         const navigateTo = (route: string) => {
             if (lastNavigatedRoute.current === route) return;
@@ -55,32 +56,28 @@ export default function RootLayout() {
 
         // --- LÓGICA DE REDIRECCIÓN ---
         if (!isAuthenticated) {
-            // Si no está logueado, siempre al login
             if (!inAuthGroup) {
                 navigateTo('/(auth)/login');
             }
         } else if (user) {
             const role = user.role;
 
-            // Redirigir según el rol solo si NO estamos ya en la carpeta correcta
             if (role === 'rector' && !isAtRector) {
-                console.log("🚀 Navegando a zona Rector");
                 navigateTo('/rector');
             }
             else if (role === 'docente' && !isAtTeacher) {
-                console.log("🚀 Navegando a zona Docente");
                 navigateTo('/teacher');
             }
+            else if (role === 'preceptor' && !isAtPreceptor) {
+                navigateTo('/preceptor');
+            }
             else if (role === 'tutor' && !isAtTutor) {
-                console.log("🚀 Navegando a zona Tutor");
                 navigateTo('/tutor');
             }
             else if (role === 'student' && !isAtStudent) {
-                console.log("🚀 Navegando a zona Alumno");
-                navigateTo('/student'); // 🚀 Redirección para Pedrito Junior
+                navigateTo('/student');
             }
             else {
-                // Ya está en su lugar, limpiar referencia para permitir futuros cambios
                 lastNavigatedRoute.current = null;
             }
         }

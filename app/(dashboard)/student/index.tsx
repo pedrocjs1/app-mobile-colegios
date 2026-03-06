@@ -3,7 +3,8 @@ import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet, ActivityIn
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks/useTheme';
 import { useRouter } from 'expo-router';
-import { Bell, BookOpen, Calendar, ShieldAlert, LogOut, CheckCircle2, Clock, ChevronRight } from 'lucide-react-native';
+import { BookOpen, Calendar, ShieldAlert, LogOut, CheckCircle2, Clock } from 'lucide-react-native';
+import * as db from '../../../services/databaseService';
 
 export default function StudentDashboard() {
     const theme = useTheme();
@@ -13,28 +14,51 @@ export default function StudentDashboard() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-
-    // Datos estáticos iniciales
-    const [studentData] = useState({
-        absences: { justified: 2, unjustified: 3 },
-        sanctions: 1,
-        pendingTasks: 4,
-        nextExam: 'Matemáticas - Viernes 16/01'
+    const [stats, setStats] = useState({
+        justified: 0, unjustified: 0, sanctions: 0, pendingTasks: 0, nextExam: ''
     });
 
-    useEffect(() => {
-        setTimeout(() => setIsLoading(false), 800);
-    }, []);
+    const fetchData = async () => {
+        if (!user?.id || !user?.school_id) { setIsLoading(false); return; }
+        try {
+            const student = await db.getStudentByUserId(user.id);
+            if (!student) { setIsLoading(false); return; }
+
+            const [attendance, sanctions, tasks, submissions, exams] = await Promise.all([
+                db.getStudentAttendance(student.id),
+                db.getStudentSanctions(student.id),
+                db.getTasksForStudent(user.school_id, student.grade, student.section),
+                db.getStudentSubmissions(student.id),
+                db.getExamsForStudent(user.school_id, student.grade, student.section)
+            ]);
+
+            const justified = attendance.filter((a: any) => a.status === 'excused').length;
+            const unjustified = attendance.filter((a: any) => a.status === 'absent').length;
+            const submittedIds = new Set(submissions.map((s: any) => s.task_id));
+            const pending = tasks.filter((t: any) => !submittedIds.has(t.id)).length;
+            const futureExams = exams
+                .filter((e: any) => new Date(e.exam_date) >= new Date())
+                .sort((a: any, b: any) => new Date(a.exam_date).getTime() - new Date(b.exam_date).getTime());
+
+            setStats({
+                justified, unjustified,
+                sanctions: sanctions.filter((s: any) => !s.resolved).length,
+                pendingTasks: pending,
+                nextExam: futureExams.length > 0
+                    ? `${futureExams[0].title} - ${futureExams[0].exam_date}`
+                    : 'Sin pruebas programadas'
+            });
+        } catch (e) { console.error(e); }
+        finally { setIsLoading(false); setRefreshing(false); }
+    };
+
+    useEffect(() => { fetchData(); }, [user?.id]);
+    const onRefresh = () => { setRefreshing(true); fetchData(); };
 
     const handleLogout = () => {
         Alert.alert("Cerrar Sesión", "¿Estás seguro de que quieres salir?", [
             { text: "Cancelar", style: "cancel" },
-            {
-                text: "Salir", style: "destructive", onPress: async () => {
-                    await logout();
-                    router.replace('/(auth)/login');
-                }
-            }
+            { text: "Salir", style: "destructive", onPress: async () => { await logout(); router.replace('/(auth)/login'); } }
         ]);
     };
 
@@ -50,15 +74,14 @@ export default function StudentDashboard() {
     return (
         <ScrollView
             style={{ flex: 1, backgroundColor: '#F0F2F5' }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => setIsLoading(true)} colors={[theme.primary]} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} />}
         >
-            {/* Header Premium */}
             <View style={[styles.header, { backgroundColor: theme.primary }]}>
                 <View style={styles.headerTop}>
                     <View style={styles.profileBox}>
                         <Image source={{ uri: `https://ui-avatars.com/api/?name=${user?.name}&background=fff&color=${theme.primary.replace('#', '')}&bold=true` }} style={styles.avatar} />
                         <View>
-                            <Text style={styles.welcomeText}>Hola, {user?.name.split(' ')[0]}</Text>
+                            <Text style={styles.welcomeText}>Hola, {user?.name?.split(' ')[0]}</Text>
                             <Text style={styles.subText}>Panel de Estudiante</Text>
                         </View>
                     </View>
@@ -68,40 +91,38 @@ export default function StudentDashboard() {
                 </View>
             </View>
 
-            {/* Métricas */}
             <View style={styles.metricsContainer}>
                 <Text style={styles.sectionTitle}>Mi Estado Escolar</Text>
                 <View style={styles.metricsRow}>
                     <View style={[styles.metricCard, { backgroundColor: '#10B981' }]}>
                         <CheckCircle2 size={24} color="white" />
-                        <Text style={styles.metricNumber}>{studentData.absences.justified}</Text>
+                        <Text style={styles.metricNumber}>{stats.justified}</Text>
                         <Text style={styles.metricLabel}>Justificadas</Text>
                     </View>
                     <View style={[styles.metricCard, { backgroundColor: '#F59E0B' }]}>
                         <Clock size={24} color="white" />
-                        <Text style={styles.metricNumber}>{studentData.absences.unjustified}</Text>
+                        <Text style={styles.metricNumber}>{stats.unjustified}</Text>
                         <Text style={styles.metricLabel}>Faltas</Text>
                     </View>
                 </View>
                 <View style={styles.metricsRow}>
                     <View style={[styles.metricCard, { backgroundColor: '#EF4444' }]}>
                         <ShieldAlert size={24} color="white" />
-                        <Text style={styles.metricNumber}>{studentData.sanctions}</Text>
+                        <Text style={styles.metricNumber}>{stats.sanctions}</Text>
                         <Text style={styles.metricLabel}>Sanciones</Text>
                     </View>
                     <View style={[styles.metricCard, { backgroundColor: '#6366F1' }]}>
                         <BookOpen size={24} color="white" />
-                        <Text style={styles.metricNumber}>{studentData.pendingTasks}</Text>
+                        <Text style={styles.metricNumber}>{stats.pendingTasks}</Text>
                         <Text style={styles.metricLabel}>Tareas</Text>
                     </View>
                 </View>
 
-                {/* Exámenes */}
                 <Text style={styles.sectionTitle}>Próximo Examen</Text>
                 <View style={styles.examCard}>
                     <Calendar size={24} color={theme.primary} />
                     <View style={{ flex: 1, marginLeft: 15 }}>
-                        <Text style={styles.examDetail}>{studentData.nextExam}</Text>
+                        <Text style={styles.examDetail}>{stats.nextExam}</Text>
                     </View>
                 </View>
             </View>

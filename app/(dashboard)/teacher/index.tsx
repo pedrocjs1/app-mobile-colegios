@@ -3,14 +3,16 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIn
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks/useTheme';
 import {
-    Bell, ShieldAlert, FilePlus, CalendarDays,
-    Send, ChevronRight, BookMarked, LogOut, Users, User, ClipboardList
+    ShieldAlert, FilePlus,
+    Send, ChevronRight, LogOut, ClipboardList
 } from 'lucide-react-native';
-import { getTeacherSubjects, getStudentsByClass } from '../../../services/databaseService';
+import { useRouter } from 'expo-router';
+import { getTeacherSubjects, getStudentsByClass, createSanction } from '../../../services/databaseService';
 
 export default function TeacherDashboard() {
     const theme = useTheme();
     const { user, logout } = useAuthStore();
+    const router = useRouter();
 
     const [loading, setLoading] = useState(true);
     const [subjects, setSubjects] = useState<any[]>([]);
@@ -88,10 +90,17 @@ export default function TeacherDashboard() {
                             <View key={stu.id} style={styles.studentCard}>
                                 <Text style={styles.studentName}>{stu.first_name} {stu.last_name}</Text>
                                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                                    <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("Sanción", "Módulo en desarrollo")}>
+                                    <TouchableOpacity style={styles.actionBtn} onPress={() => {
+                                        Alert.prompt ? Alert.prompt("Sanción", "Motivo:", (text) => {
+                                            if (text && user?.school_id && user?.id) {
+                                                createSanction({ school_id: user.school_id, student_id: stu.id, type: 'Llamado de atención', description: text, issued_by: user.id });
+                                                Alert.alert("Registrada", "Sanción registrada.");
+                                            }
+                                        }) : Alert.alert("Sanción", "Usá la pestaña Avisos para gestionar sanciones.");
+                                    }}>
                                         <ShieldAlert size={18} color="#EF4444" />
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert("Citar", "Módulo en desarrollo")}>
+                                    <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(dashboard)/teacher/avisos')}>
                                         <Send size={18} color={theme.primary} />
                                     </TouchableOpacity>
                                 </View>
@@ -104,11 +113,11 @@ export default function TeacherDashboard() {
                 <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>Gestión Académica</Text>
                     <View style={{ flexDirection: 'row', gap: 15 }}>
-                        <TouchableOpacity style={styles.gridBtn} onPress={() => Alert.alert("Tareas", "Módulo para subir tareas")}>
+                        <TouchableOpacity style={styles.gridBtn} onPress={() => router.push('/(dashboard)/teacher/tareas')}>
                             <FilePlus size={24} color="#8B5CF6" />
                             <Text style={styles.gridBtnText}>Nueva Tarea</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.gridBtn} onPress={() => Alert.alert("Pruebas", "Módulo para subir notas")}>
+                        <TouchableOpacity style={styles.gridBtn} onPress={() => router.push('/(dashboard)/teacher/calendario')}>
                             <ClipboardList size={24} color="#F59E0B" />
                             <Text style={styles.gridBtnText}>Nueva Prueba</Text>
                         </TouchableOpacity>

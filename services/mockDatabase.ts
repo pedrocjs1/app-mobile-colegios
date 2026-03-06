@@ -71,6 +71,74 @@ export interface Sanction {
     resolved: boolean;
 }
 
+export interface Task {
+    id: string;
+    school_id: string;
+    teacher_id: string;
+    subject_id?: string;
+    title: string;
+    description?: string;
+    grade: string;
+    section: string;
+    due_date: string;
+    created_at?: string;
+    subject_name?: string;
+    teacher_name?: string;
+}
+
+export interface TaskSubmission {
+    id: string;
+    task_id: string;
+    student_id: string;
+    file_url?: string;
+    comment?: string;
+    submitted_at?: string;
+    grade?: string;
+    graded_at?: string;
+    student_name?: string;
+}
+
+export interface Exam {
+    id: string;
+    school_id: string;
+    teacher_id: string;
+    subject_id?: string;
+    title: string;
+    description?: string;
+    grade: string;
+    section: string;
+    exam_date: string;
+    created_at?: string;
+    subject_name?: string;
+}
+
+export interface Notification {
+    id: string;
+    school_id: string;
+    user_id: string;
+    title: string;
+    message: string;
+    type: 'info' | 'warning' | 'urgent' | 'health' | 'attention_call';
+    is_read: boolean;
+    related_id?: string;
+    created_at?: string;
+}
+
+export interface AttentionCall {
+    id: string;
+    school_id: string;
+    teacher_id: string;
+    student_id: string;
+    tutor_id: string;
+    reason: string;
+    type: 'general' | 'academic' | 'behavior' | 'health';
+    status: 'pending' | 'acknowledged' | 'resolved';
+    scheduled_date?: string;
+    created_at?: string;
+    teacher_name?: string;
+    student_name?: string;
+}
+
 // ============================================
 // MOCK DATA
 // ============================================
