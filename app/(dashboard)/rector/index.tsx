@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet, ActivityIn
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks/useTheme';
 import { useRouter } from 'expo-router';
-import { Bell, Users, UserPlus, Settings, FileText, TrendingUp, Calendar, AlertCircle } from 'lucide-react-native';
+import { Bell, Users, UserPlus, Settings, FileText, TrendingUp, Calendar, AlertCircle, Book } from 'lucide-react-native';
 import * as db from '../../../services/databaseService';
 
 export default function RectorDashboard() {
@@ -167,6 +167,14 @@ export default function RectorDashboard() {
                     >
                         <Settings size={32} color="white" />
                         <Text style={styles.actionText}>Configuración{'\n'}Escolar</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.actionCard, { backgroundColor: '#F59E0B' }]}
+                        onPress={() => router.push('/(dashboard)/rector/materias')}
+                    >
+                        <Book size={32} color="white" />
+                        <Text style={styles.actionText}>Gestión de{'\n'}Materias</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity

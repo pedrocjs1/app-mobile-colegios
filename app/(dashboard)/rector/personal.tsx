@@ -9,14 +9,12 @@ import { useTheme } from '../../../hooks/useTheme';
 import { useRouter } from 'expo-router';
 import {
     ArrowLeft, UserPlus, Mail, RefreshCcw, X, User,
-    Key, Book, ChevronRight, Plus, Trash2, Power, UserX
+    Key, Book, ChevronRight, Plus, Trash2, Power, UserX, ExternalLink
 } from 'lucide-react-native';
 import {
     getStaff,
     createStaffMember,
     getTeacherSubjects,
-    getAllSubjects,
-    assignSubjectToTeacher,
     unassignSubjectFromTeacher,
     toggleStaffStatus
 } from '../../../services/databaseService';
@@ -45,9 +43,7 @@ export default function PersonalScreen() {
     const [newPassword, setNewPassword] = useState('');
     const [staffSubjects, setStaffSubjects] = useState<any[]>([]);
 
-    // ESTADOS SELECTOR MATERIAS
-    const [isSubjectSelectorVisible, setIsSubjectSelectorVisible] = useState(false);
-    const [allAvailableSubjects, setAllAvailableSubjects] = useState<any[]>([]);
+    // (Materias se gestionan desde la tab Materias)
 
     // 1. CARGAR PERSONAL
     const loadStaff = async () => {
@@ -124,31 +120,10 @@ export default function PersonalScreen() {
         ]);
     };
 
-    // 5. SELECTOR DE MATERIAS (Función handleOpenSubjectSelector)
-    const handleOpenSubjectSelector = async () => {
-        if (!user?.school_id) return;
-        try {
-            const subjects = await getAllSubjects(user.school_id);
-            setAllAvailableSubjects(subjects);
-            setIsSubjectSelectorVisible(true);
-        } catch (e) {
-            Alert.alert("Error", "No se cargaron las materias.");
-        }
-    };
-
-    // 6. ASIGNAR MATERIA
-    const handleAssignSubject = async (subjectId: string) => {
-        if (!selectedStaff) return;
-        setIsSubmitting(true);
-        try {
-            await assignSubjectToTeacher(user!.school_id, selectedStaff.id, subjectId);
-            setIsSubjectSelectorVisible(false);
-            await refreshStaffSubjects(selectedStaff.id);
-        } catch (e: any) {
-            Alert.alert("Aviso", e.message);
-        } finally {
-            setIsSubmitting(false);
-        }
+    // 5. IR A GESTIÓN DE MATERIAS
+    const handleGoToMaterias = () => {
+        setIsDetailModalVisible(false);
+        router.push('/(dashboard)/rector/materias');
     };
 
     // 7. ACTUALIZAR CONTRASEÑA
@@ -335,7 +310,7 @@ export default function PersonalScreen() {
 
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25 }}>
                                             <Text style={styles.sectionLabel}>Materias Asignadas</Text>
-                                            <TouchableOpacity style={styles.addSubjectIcon} onPress={handleOpenSubjectSelector}><Plus size={18} color="white" /></TouchableOpacity>
+                                            <TouchableOpacity style={styles.addSubjectIcon} onPress={handleGoToMaterias}><Plus size={18} color="white" /></TouchableOpacity>
                                         </View>
 
                                         <View style={styles.subjectsList}>
@@ -376,25 +351,7 @@ export default function PersonalScreen() {
                 </KeyboardAvoidingView>
             </Modal>
 
-            {/* SELECTOR DE MATERIAS */}
-            <Modal visible={isSubjectSelectorVisible} transparent animationType="fade">
-                <View style={styles.selectorOverlay}>
-                    <View style={styles.selectorContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Asignar Materia</Text>
-                            <TouchableOpacity onPress={() => setIsSubjectSelectorVisible(false)}><X size={24} color="#000" /></TouchableOpacity>
-                        </View>
-                        <ScrollView>
-                            {allAvailableSubjects.map((sub) => (
-                                <TouchableOpacity key={sub.id} style={styles.selectorItem} onPress={() => handleAssignSubject(sub.id)}>
-                                    <Book size={18} color={theme.primary} style={{ marginRight: 10 }} />
-                                    <Text style={styles.selectorText}>{sub.name} ({sub.grade})</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
+            {/* Materias se gestionan desde la tab Materias */}
         </View>
     );
 }

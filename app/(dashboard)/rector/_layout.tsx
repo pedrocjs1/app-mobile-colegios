@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Users, ShieldCheck, Settings } from 'lucide-react-native';
+import { Home, Users, ShieldCheck, Settings, Book } from 'lucide-react-native';
 import { useTheme } from '../../../hooks/useTheme';
 
 export default function RectorLayout() {
@@ -42,6 +42,13 @@ export default function RectorLayout() {
                 options={{
                     title: 'Personal',
                     tabBarIcon: ({ color }) => <ShieldCheck size={24} color={color} />,
+                }}
+            />
+            <Tabs.Screen
+                name="materias"
+                options={{
+                    title: 'Materias',
+                    tabBarIcon: ({ color }) => <Book size={24} color={color} />,
                 }}
             />
             <Tabs.Screen

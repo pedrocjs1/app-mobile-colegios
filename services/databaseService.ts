@@ -243,27 +243,53 @@ export async function getTeacherSubjects(teacherId: string) {
 }
 
 export async function assignSubjectToTeacher(schoolId: string, teacherId: string, subjectId: string) {
-    const { data, error } = await supabase
-        .from('teacher_subjects')
-        .insert([{
-            school_id: schoolId,
-            teacher_id: teacherId,
-            subject_id: subjectId
-        }]);
+    try {
+        // Actualizar teacher_id directo en la tabla subjects
+        const { data, error } = await supabase
+            .from('subjects')
+            .update({ teacher_id: teacherId })
+            .eq('id', subjectId)
+            .select();
 
-    if (error) {
-        if (error.code === '23505') throw new Error('Esta materia ya está asignada a este docente.');
-        throw error;
+        if (error) throw error;
+        return data;
+    } catch (error: any) {
+        console.error('Error en assignSubjectToTeacher:', error);
+        throw new Error(error.message || 'No se pudo asignar la materia.');
     }
-    return data;
+}
+
+export async function createSubject(schoolId: string, name: string, grade: string, section: string, teacherId?: string) {
+    try {
+        const id = `subj-${Date.now()}`;
+        const { data, error } = await supabase
+            .from('subjects')
+            .insert({
+                id,
+                school_id: schoolId,
+                name,
+                grade,
+                section,
+                teacher_id: teacherId || null
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error: any) {
+        console.error('Error en createSubject:', error);
+        throw new Error(error.message || 'No se pudo crear la materia.');
+    }
 }
 
 export async function unassignSubjectFromTeacher(teacherId: string, subjectId: string) {
+    // Quitar teacher_id de la materia (poner null)
     const { error } = await supabase
-        .from('teacher_subjects')
-        .delete()
-        .eq('teacher_id', teacherId)
-        .eq('subject_id', subjectId);
+        .from('subjects')
+        .update({ teacher_id: null })
+        .eq('id', subjectId)
+        .eq('teacher_id', teacherId);
 
     if (error) throw error;
     return true;
